@@ -52,7 +52,6 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 
 #define Diameter 3.25
 #define UNITSIZE 23.75 // tile size
-#define MOGO_DIST 5
 #define NOTE str = 
 #define INF 4294967295
 #define CLAW_OPEN true
@@ -65,10 +64,9 @@ void pre_auton(void) {
   vexcodeInit();
   Gyro.calibrate();
   GPS.calibrate();
-  //picasso.set(false);
-	claw.set(false);
-  MogoTilt1.set(false);
-  MogoTilt2.set(false);
+	claw.set(CLAW_OPEN);
+  MogoTilt1.set(TILT_OPEN);
+  MogoTilt2.set(TILT_OPEN);
   ClashRoyal1.set(false);
   ClashRoyal2.set(false);
   wait(2000, msec);
