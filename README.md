@@ -1,1 +1,1 @@
-# 7700R-chinese-ring-code
+# 7700R-ring-bot
