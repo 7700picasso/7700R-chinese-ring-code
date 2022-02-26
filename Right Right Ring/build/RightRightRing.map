@@ -1035,8 +1035,6 @@ Discarded input sections
                 0x0000000000000000        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
  .rodata._ZN3vex3ampE
                 0x0000000000000000        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
- .rodata._ZN3vex6PORT10E
-                0x0000000000000000        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
  .rodata._ZN3vex5yaxisE
                 0x0000000000000000        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
  .rodata._ZN3vex10range12bitE
@@ -1128,6 +1126,8 @@ Discarded input sections
  .rodata._ZN3vex6PORT12E
                 0x0000000000000000        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
  .rodata._ZN3vex2mVE
+                0x0000000000000000        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
+ .rodata._ZN3vex5PORT7E
                 0x0000000000000000        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
  .rodata._ZN3vex23__sdk_cpp_version_minorE
                 0x0000000000000000        0x1 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
@@ -3450,54 +3450,54 @@ Linker script and memory map
  .rodata._ZN3vex5PORT1E
                 0x0000000003803c6c        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
                 0x0000000003803c6c                vex::PORT1
- .rodata._ZN3vex5PORT5E
+ .rodata._ZN3vex6PORT10E
                 0x0000000003803c70        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
-                0x0000000003803c70                vex::PORT5
- .rodata._ZN3vex7forwardE
+                0x0000000003803c70                vex::PORT10
+ .rodata._ZN3vex5PORT5E
                 0x0000000003803c74        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
-                0x0000000003803c74                vex::forward
- .rodata._ZN3vex3pctE
+                0x0000000003803c74                vex::PORT5
+ .rodata._ZN3vex7forwardE
                 0x0000000003803c78        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
-                0x0000000003803c78                vex::pct
- .rodata._ZN3vex4msecE
+                0x0000000003803c78                vex::forward
+ .rodata._ZN3vex3pctE
                 0x0000000003803c7c        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
-                0x0000000003803c7c                vex::msec
- .rodata._ZN3vex9ratio36_1E
+                0x0000000003803c7c                vex::pct
+ .rodata._ZN3vex4msecE
                 0x0000000003803c80        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
-                0x0000000003803c80                vex::ratio36_1
- .rodata._ZN3vex5PORT9E
+                0x0000000003803c80                vex::msec
+ .rodata._ZN3vex9ratio36_1E
                 0x0000000003803c84        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
-                0x0000000003803c84                vex::PORT9
- .rodata._ZN3vex5PORT2E
+                0x0000000003803c84                vex::ratio36_1
+ .rodata._ZN3vex5PORT9E
                 0x0000000003803c88        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
-                0x0000000003803c88                vex::PORT2
- .rodata._ZN3vex5PORT6E
+                0x0000000003803c88                vex::PORT9
+ .rodata._ZN3vex5PORT2E
                 0x0000000003803c8c        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
-                0x0000000003803c8c                vex::PORT6
- .rodata._ZN3vex7primaryE
+                0x0000000003803c8c                vex::PORT2
+ .rodata._ZN3vex5PORT6E
                 0x0000000003803c90        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
-                0x0000000003803c90                vex::primary
- .rodata._ZN3vex7percentE
+                0x0000000003803c90                vex::PORT6
+ .rodata._ZN3vex7primaryE
                 0x0000000003803c94        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
-                0x0000000003803c94                vex::percent
- .rodata._ZN3vex6PORT15E
+                0x0000000003803c94                vex::primary
+ .rodata._ZN3vex7percentE
                 0x0000000003803c98        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
-                0x0000000003803c98                vex::PORT15
- .rodata._ZN3vex6PORT19E
+                0x0000000003803c98                vex::percent
+ .rodata._ZN3vex6PORT15E
                 0x0000000003803c9c        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
-                0x0000000003803c9c                vex::PORT19
- .rodata._ZN3vex7degreesE
+                0x0000000003803c9c                vex::PORT15
+ .rodata._ZN3vex6PORT19E
                 0x0000000003803ca0        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
-                0x0000000003803ca0                vex::degrees
- .rodata._ZN3vex6PORT22E
+                0x0000000003803ca0                vex::PORT19
+ .rodata._ZN3vex7degreesE
                 0x0000000003803ca4        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
-                0x0000000003803ca4                vex::PORT22
- .rodata._ZN3vex4holdE
+                0x0000000003803ca4                vex::degrees
+ .rodata._ZN3vex6PORT22E
                 0x0000000003803ca8        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
-                0x0000000003803ca8                vex::hold
- .rodata._ZN3vex5PORT7E
+                0x0000000003803ca8                vex::PORT22
+ .rodata._ZN3vex4holdE
                 0x0000000003803cac        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
-                0x0000000003803cac                vex::PORT7
+                0x0000000003803cac                vex::hold
  .rodata._ZN3vex6PORT16E
                 0x0000000003803cb0        0x4 /Applications/VEXcode Pro V5.app/Contents/Resources/sdk/vexv5/libv5rt.a(vex_global.cpp.obj)
                 0x0000000003803cb0                vex::PORT16

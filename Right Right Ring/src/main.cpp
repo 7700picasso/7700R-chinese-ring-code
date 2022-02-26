@@ -18,13 +18,13 @@
 // Robot Configuration:
 // [Name]               [Type]        [Port(s)]
 // Controller1          controller                    
-// leftDrive1           motor         7               
+// leftDrive1           motor         1               
 // leftDrive2           motor         3               
 // leftmiddle           motor         5               
 // rightDrive1          motor         6               
 // rightDrive2          motor         2               
 // rightmiddle          motor         4               
-// Lift                 motor         1               
+// Lift                 motor         10              
 // claw                 digital_out   A               
 // Gyro                 inertial      19              
 // GPS                  gps           9               
