@@ -25,7 +25,6 @@
 // rightDrive2          motor         8               
 // rightmiddle          motor         4               
 // Lift                 motor         10              
-// claw                 digital_out   F               
 // Gyro                 inertial      19              
 // GPS                  gps           21              
 // DistFront            distance      15              
@@ -35,6 +34,8 @@
 // ClashRoyal1          digital_out   D               
 // ClashRoyal2          digital_out   E               
 // Rings                motor         9               
+// claw1                digital_out   B               
+// claw2                digital_out   C               
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
@@ -54,7 +55,7 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define UNITSIZE 23.75 // tile size
 #define NOTE str = 
 #define INF 4294967295
-#define CLAW_OPEN true
+#define CLAW_OPEN false
 #define TILT_OPEN false
 #define LIFT_UP 85
 
@@ -64,7 +65,8 @@ void pre_auton(void) {
   vexcodeInit();
   Gyro.calibrate();
   GPS.calibrate();
-	claw.set(CLAW_OPEN);
+	claw1.set(CLAW_OPEN);
+  claw2.set(CLAW_OPEN);
   MogoTilt.set(TILT_OPEN);
   ClashRoyal1.set(false);
   ClashRoyal2.set(false);
@@ -229,7 +231,8 @@ void rings(bool on, int speed = 83) { // i think 100 is a bit fast
 
 void Claw(bool open) {
   //wait(50 * open, msec);
-  claw.set(open);
+  claw1.set(open);
+  claw2.set(open);
   //wait(50 * !open, msec);
 }
 
@@ -279,7 +282,7 @@ void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_
     speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
     drive(speed, speed, 10);
     olderror = error;
-    isOpen = target > 0 ? claw.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
+    isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
     if (endClaw && isOpen && (/*DistClaw.objectDistance(inches) < 2 ||*/ fabs(error) <= clawDist)) { // close claw b4 it goes backwards.
 	    if (target > 0) Claw(!CLAW_OPEN);
       else mogoTilt(!TILT_OPEN);
@@ -547,7 +550,7 @@ void auton() {
 	NOTE"  RRRR             RRRR      RRRRRRRRRRRRRR            RRRR           RRRRRRRRRRRRRR    ";
 	NOTE" RRRR               RRRR        RRRRRRRR               RRRR              RRRRRRRR       ";
 
-	claw.set(CLAW_OPEN); // open claw
+	Claw(CLAW_OPEN); // open claw
   mogoTilt(TILT_OPEN);
   clashRoyal(false);
 
@@ -709,10 +712,10 @@ void driver() {
   
 
 		if (Controller1.ButtonX.pressing()) { // claw close
-			claw.set(false);
+			Claw(!CLAW_OPEN);
 		}
 		else if (Controller1.ButtonA.pressing()) { //claw open
-			claw.set(true);
+			Claw(CLAW_OPEN);
 		}
 
 		if (Controller1.ButtonUp.pressing()) { // picasso

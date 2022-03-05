@@ -11,7 +11,6 @@ extern motor rightDrive1;
 extern motor rightDrive2;
 extern motor rightmiddle;
 extern motor Lift;
-extern digital_out claw;
 extern inertial Gyro;
 extern gps GPS;
 extern distance DistFront;
@@ -21,6 +20,8 @@ extern digital_out MogoTilt;
 extern digital_out ClashRoyal1;
 extern digital_out ClashRoyal2;
 extern motor Rings;
+extern digital_out claw1;
+extern digital_out claw2;
 
 /**
  * Used to initialize code/tasks/devices added using tools in VEXcode Pro.

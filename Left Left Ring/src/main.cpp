@@ -25,7 +25,6 @@
 // rightDrive2          motor         8               
 // rightmiddle          motor         4               
 // Lift                 motor         10              
-// claw                 digital_out   B               
 // Gyro                 inertial      19              
 // GPS                  gps           21              
 // DistFront            distance      15              
@@ -35,6 +34,8 @@
 // ClashRoyal1          digital_out   D               
 // ClashRoyal2          digital_out   E               
 // Rings                motor         9               
+// claw1                digital_out   B               
+// claw2                digital_out   C               
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
@@ -46,7 +47,7 @@ using namespace vex;
 competition Competition;
 
 // define your global Variables here
-std::string str = "";
+char *str = "";
 const long double pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825; // much more accurate than 3.14. accurate enough to go across the universe and be within an atom of error
 
 #define Diameter 3.25
@@ -54,7 +55,7 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define MOGO_DIST 5
 #define NOTE str = 
 #define INF 4294967295
-#define CLAW_OPEN true
+#define CLAW_OPEN false
 #define TILT_OPEN false
 #define LIFT_UP 85
 
@@ -65,7 +66,8 @@ void pre_auton(void) {
   Gyro.calibrate();
   GPS.calibrate();
   //picasso.set(false);
-	claw.set(CLAW_OPEN);
+	claw1.set(CLAW_OPEN);
+  claw2.set(CLAW_OPEN);
   MogoTilt.set(TILT_OPEN);
   ClashRoyal1.set(false);
   ClashRoyal2.set(false);
@@ -230,7 +232,8 @@ void rings(bool on, int speed = 100) {
 
 void Claw(bool open) {
   //wait(50 * open, msec);
-  claw.set(open);
+  claw1.set(open);
+  claw2.set(open);
   //wait(50 * !open, msec);
 }
 
@@ -418,7 +421,7 @@ void auton() {
 	NOTE"  RRRR             RRRR      RRRRRRRRRRRRRR            RRRR           RRRRRRRRRRRRRR    ";
 	NOTE" RRRR               RRRR        RRRRRRRR               RRRR              RRRRRRRR       ";
 
-	claw.set(CLAW_OPEN); // open claw
+	Claw(CLAW_OPEN); // open claw
   mogoTilt(TILT_OPEN);
   clashRoyal(false);
 
@@ -433,7 +436,7 @@ void auton() {
   "START AT THE HALFWAY LINE NEXT TO THE ALLIANCE GOAL, FACING IT WITH THE CLAW. SEE https://cdn.discordapp.com/attachments/875890646714576906/944007778526175282/Left_auto_SIDE-PICASSO.png FOR REFERENCE";
 	// SIDE
   inchDrive(61.19 - mogoStopDist); // GO TO THE MOGO
-  claw.set(!CLAW_OPEN); // CLAW IT
+  Claw(!CLAW_OPEN); // CLAW IT
   // ALLIANCE GOAL
   inchDrive(-40.714 + mogoStopDist, 0);// GO TO THE DIAGONAL OF APPROACH. LOWER MOGO LIFT.
   gyroturn(-25 - Gyro.rotation(degrees), facing); // POINT MOGO LIFT AT THE ALLIANCE GOAL. change the 30.
@@ -444,11 +447,11 @@ void auton() {
   turnTo(90);
   rings(true);
   inchDrive(2.5 * UNITSIZE);
-  claw.set(CLAW_OPEN);
+  Claw(CLAW_OPEN);
   // MID
   gyroturn(-90,facing);
   inchDrive(1 * UNITSIZE);
-  claw.set(!CLAW_OPEN);
+  Claw(!CLAW_OPEN);
   inchDrive(-1 * UNITSIZE);
   wait(300,msec);
 }
@@ -511,10 +514,10 @@ void driver() {
   
 
 		if (Controller1.ButtonX.pressing()) { // claw close
-			claw.set(false);
+			Claw(!CLAW_OPEN);
 		}
 		else if (Controller1.ButtonA.pressing()) { //claw open
-			claw.set(true);
+			Claw(CLAW_OPEN);
 		}
 
 		if (Controller1.ButtonUp.pressing()) { // picasso

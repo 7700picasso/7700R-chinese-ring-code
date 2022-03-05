@@ -16,7 +16,6 @@ motor rightDrive1 = motor(PORT6, ratio6_1, false);
 motor rightDrive2 = motor(PORT2, ratio6_1, false);
 motor rightmiddle = motor(PORT4, ratio6_1, false);
 motor Lift = motor(PORT10, ratio36_1, true);
-digital_out claw = digital_out(Brain.ThreeWirePort.B);
 inertial Gyro = inertial(PORT19);
 gps GPS = gps(PORT21, 220.00, 50.00, mm, 90);
 distance DistFront = distance(PORT15);
@@ -26,6 +25,8 @@ digital_out MogoTilt = digital_out(Brain.ThreeWirePort.A);
 digital_out ClashRoyal1 = digital_out(Brain.ThreeWirePort.D);
 digital_out ClashRoyal2 = digital_out(Brain.ThreeWirePort.E);
 motor Rings = motor(PORT9, ratio6_1, false);
+digital_out claw1 = digital_out(Brain.ThreeWirePort.B);
+digital_out claw2 = digital_out(Brain.ThreeWirePort.C);
 
 // VEXcode generated functions
 // define variable for remote controller enable/disable
