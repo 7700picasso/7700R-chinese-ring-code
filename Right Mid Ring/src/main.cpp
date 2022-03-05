@@ -22,20 +22,19 @@
 // leftDrive2           motor         3               
 // leftmiddle           motor         5               
 // rightDrive1          motor         6               
-// rightDrive2          motor         2               
+// rightDrive2          motor         8               
 // rightmiddle          motor         4               
 // Lift                 motor         10              
-// claw                 digital_out   A               
+// claw                 digital_out   B               
 // Gyro                 inertial      19              
-// GPS                  gps           9               
+// GPS                  gps           21              
 // DistFront            distance      15              
 // DistBack             distance      16              
 // DistClaw             distance      17              
-// MogoTilt1            digital_out   B               
-// MogoTilt2            digital_out   C               
+// MogoTilt             digital_out   A               
 // ClashRoyal1          digital_out   D               
 // ClashRoyal2          digital_out   E               
-// Rings                motor         8               
+// Rings                motor         9               
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
@@ -67,8 +66,7 @@ void pre_auton(void) {
   GPS.calibrate();
   //picasso.set(false);
 	claw.set(CLAW_OPEN);
-  MogoTilt1.set(TILT_OPEN);
-  MogoTilt2.set(TILT_OPEN);
+  MogoTilt.set(TILT_OPEN);
   ClashRoyal1.set(false);
   ClashRoyal2.set(false);
   wait(2000, msec);
@@ -221,12 +219,12 @@ void liftWait(double target, uint32_t maxTime = INF) {
 //example lift(-100,1200);  so lift 100% for 1200 msc
 // 100 is up and -100 is down,or other way around,you can figure that out
 
-void rings(bool on, int speed = 66) { // i think 100 is a bit fast
+void rings(bool on, int speed = 83) {
   if (on) {
     Rings.spin(forward, on * speed, percent);
   }
   else {
-    Rings.stop(hold);
+    Rings.spin(forward,0,percent);
   }
 }
 
@@ -243,8 +241,7 @@ void Claw(bool open) {
 //claw.set(false);   close
 
 void mogoTilt(bool state) {
-  MogoTilt1.set(state);
-  MogoTilt2.set(state);
+  MogoTilt.set(state);
 }
 
 void clashRoyal(bool state) {
@@ -409,7 +406,7 @@ void auton() {
 	NOTE"  RRRR             RRRR      RRRRRRRRRRRRRR            RRRR           RRRRRRRRRRRRRR    ";
 	NOTE" RRRR               RRRR        RRRRRRRR               RRRR              RRRRRRRR       ";
 
-	claw.set(true); // open claw
+	claw.set(CLAW_OPEN); // open claw
   mogoTilt(TILT_OPEN);
   clashRoyal(false);
 
@@ -419,7 +416,30 @@ void auton() {
 		wait(10, msec);
 	}
 	
-  // INSERT AUTO
+  double facing = 0;
+  /*
+  AUTO NUMBER 2
+  MID-PICASSO-SIDE
+  START IN THE CORNER FACING MID. CENTER OF ROBOT SHOULD BE ON CENTER OF TILE
+  */
+  double mogoStopDist = 6; // STOP THIS MANY UNITS BEFORE A MOGO. FEEL FREE TO CHANGE
+  // MID
+  inchDrive(84.85 - mogoStopDist); // GO TO MID and LOWER MOGO LIFT.
+  claw.set(!CLAW_OPEN); // CLAW IT
+  liftDeg(10, 0); // RAISE LIFT BY 10° TO REDUCE FRICTION
+  // ALLIANCE
+  inchDrive(-50.91 + mogoStopDist-3); // ALIGN WITH ALLIANCE GOAL ON Y-AXIS.
+  gyroturn(-45, facing); // FACE ALLIANCE GOAL
+  inchDrive(-18); // GET IT IN MOGO LIFT
+  mogoTilt(!TILT_OPEN);
+  rings(true);
+  // SIDE
+  inchDrive(16.5); // GO BACK TO WHEREVER IT WAS B4 THE LINE THAT SAYS "GET IT IN MOGO LIFT" FROM SECTION "PICASSO"
+  claw.set(CLAW_OPEN);
+  gyroturn(90, facing); // FACE MOGO LIFT TO SIDE GOAL
+  inchDrive(40); // CLAW IT
+  claw.set(!CLAW_OPEN);
+  inchDrive(50); // RETURN TO HOME ZONE
 }
 
 //driver controls,dont change unless your jaehoon or sean
@@ -445,24 +465,30 @@ void driver() {
 		int rstick=Controller1.Axis2.position();
 		int lstick=Controller1.Axis3.position();
 		drive(lstick, rstick,10);
-		int8_t tmp, ringSpeed = 66;
+		int8_t tmp, ringSpeed = 87;
     // mogoTilt controls
     if (!Controller1.ButtonR2.pressing()) {
       r2Down = false;
     }
     else if (!r2Down) {
-      mogoTilt(!MogoTilt1.value());
+      mogoTilt(!MogoTilt.value());
       r2Down = true;
     }
     // ring controls
     if (!Controller1.ButtonR1.pressing()) {
       r1Down = false;
     }
-    else if (!r2Down) {
+    else if (!r1Down) {
       ringsOn = !ringsOn;
       r1Down = true;
     }
-    rings(ringsOn);
+		if (Controller1.ButtonY.pressing()) { // turn off rings
+			ringsOn = false;
+		}
+		else if (Controller1.ButtonB.pressing()) { // reverse rings
+      ringSpeed = -100;
+		}
+    rings(ringsOn || ringSpeed < 0,ringSpeed);
 		// lift control
 		tmp = 100 * (Controller1.ButtonL1.pressing() - Controller1.ButtonL2.pressing());
 		if (tmp == 0) {
@@ -472,13 +498,6 @@ void driver() {
 			Lift.spin(forward, tmp, percent);
 		}
   
-		if (Controller1.ButtonY.pressing()) { // hook down
-			ringsOn = false;
-		}
-		else if (Controller1.ButtonB.pressing()) { // hook up or maybe the opposite 
-			ringsOn = true;
-      ringSpeed = -66;
-		}
 
 		if (Controller1.ButtonX.pressing()) { // claw close
 			claw.set(false);

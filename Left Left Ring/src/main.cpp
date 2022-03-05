@@ -22,20 +22,19 @@
 // leftDrive2           motor         3               
 // leftmiddle           motor         5               
 // rightDrive1          motor         6               
-// rightDrive2          motor         2               
+// rightDrive2          motor         8               
 // rightmiddle          motor         4               
 // Lift                 motor         10              
-// claw                 digital_out   A               
+// claw                 digital_out   B               
 // Gyro                 inertial      19              
-// GPS                  gps           9               
+// GPS                  gps           21              
 // DistFront            distance      15              
 // DistBack             distance      16              
 // DistClaw             distance      17              
-// MogoTilt1            digital_out   B               
-// MogoTilt2            digital_out   C               
+// MogoTilt             digital_out   A               
 // ClashRoyal1          digital_out   D               
 // ClashRoyal2          digital_out   E               
-// Rings                motor         8               
+// Rings                motor         9               
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
@@ -67,8 +66,7 @@ void pre_auton(void) {
   GPS.calibrate();
   //picasso.set(false);
 	claw.set(CLAW_OPEN);
-  MogoTilt1.set(TILT_OPEN);
-  MogoTilt2.set(TILT_OPEN);
+  MogoTilt.set(TILT_OPEN);
   ClashRoyal1.set(false);
   ClashRoyal2.set(false);
   wait(2000, msec);
@@ -221,7 +219,7 @@ void liftWait(double target, uint32_t maxTime = INF) {
 //example lift(-100,1200);  so lift 100% for 1200 msc
 // 100 is up and -100 is down,or other way around,you can figure that out
 
-void rings(bool on, int speed = 66) { // i think 100 is a bit fast
+void rings(bool on, int speed = 100) {
   if (on) {
     Rings.spin(forward, on * speed, percent);
   }
@@ -243,8 +241,7 @@ void Claw(bool open) {
 //claw.set(false);   close
 
 void mogoTilt(bool state) {
-  MogoTilt1.set(state);
-  MogoTilt2.set(state);
+  MogoTilt.set(state);
 }
 
 void clashRoyal(bool state) {
@@ -252,7 +249,7 @@ void clashRoyal(bool state) {
   ClashRoyal2.set(state);
 }
 
-void inchDrive(double target, double accuracy = 1) {
+void inchDrive(double target, double accuracy = 0.25) {
   leftDrive1.setPosition(0,  rev);
   leftDrive2.setPosition(0,  rev); // might only need 1 of 3 of these but im a dumbass so leave it 
   leftmiddle.setPosition(0,  rev);
@@ -367,32 +364,43 @@ void balance() { // WIP
   Brain.Screen.printAt(1, 150, "i am done ");
 }
 
-void gyroturn(double target, double accuracy = 1) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
-  double Kp = 1.1;
-  double Ki = 0.2;
-  double Kd = 1.25;
-	double decay = 0.5; // integral decay
-	
-  volatile double sum = 0;
 
-  volatile double speed;
-  volatile double error = target;
-  volatile double olderror = error;
+void gyroturn(double target, double &idealDir,double accuracy = 1) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
+  double Kp = 1.25; // was 2.0
+  double Ki = 0.1; // adds a bit less than 50% when there is 90° left.
+  double Kd = 1.0; // was 16.0
+ 
+  double currentDir = Gyro.rotation(degrees);
+  double speed = 100;
+  double error = target;
+  double olderror = error;
 
-  target += Gyro.rotation(degrees);
+  double lambda = 0.5; // exponential decay rate
 
-  while(fabs(error) > accuracy || fabs(speed) > 1) { //fabs = absolute value while loop again
-    error = target - Gyro.rotation(degrees);; //error gets smaller closer you get,robot slows down
-    sum = sum * decay + error; 
+  double sum = 0;
+  
+  idealDir += target;
+  target = currentDir + idealDir - Gyro.rotation(degrees);
+  
+  while(fabs(error) > accuracy){ //fabs = absolute value while loop again
+    currentDir = Gyro.rotation(degrees);
+    error = target - currentDir; //error gets smaller closer you get,robot slows down
+    sum = sum * lambda + error;
     speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
     drive(speed, -speed, 10);
+    Brain.Screen.printAt(1, 40, "heading = %0.2f    degrees", currentDir); //math thing again,2 decimal places
     Brain.Screen.printAt(1, 60, "speed = %0.2f    degrees", speed);
+    //all ths print screen helps test to make sure gyro not broke
     olderror = error;
   }
+  brakeDrive();
+  currentDir = Gyro.rotation(degrees); //prints the gyro rotation degress
+  Brain.Screen.printAt(1, 40, "heading = %0.2f    degrees", currentDir);
 }
 
 void turnTo(double target, double accuracy = 1) {
-  gyroturn(mod(target - Gyro.rotation(degrees) - 180, 360) - 180, accuracy);
+  double facing = Gyro.rotation(degrees);
+  gyroturn(mod(target - facing - 180, 360) - 180, facing, accuracy);
 }
 
 
@@ -410,17 +418,39 @@ void auton() {
 	NOTE"  RRRR             RRRR      RRRRRRRRRRRRRR            RRRR           RRRRRRRRRRRRRR    ";
 	NOTE" RRRR               RRRR        RRRRRRRR               RRRR              RRRRRRRR       ";
 
-	claw.set(true); // open claw
+	claw.set(CLAW_OPEN); // open claw
   mogoTilt(TILT_OPEN);
   clashRoyal(false);
 
 	//runningAuto = true;
+  double facing = 11.3;
+  double mogoStopDist = 6; // STOP THIS MANY UNITS BEFORE A MOGO. FEEL FREE TO CHANGE
 
 	while (Gyro.isCalibrating() || GPS.isCalibrating()) { // dont start until gyro and GPS are calibrated
 		wait(10, msec);
 	}
-
-	// INSERT AUTO
+  "SIDE-RINGS-MID";
+  "START AT THE HALFWAY LINE NEXT TO THE ALLIANCE GOAL, FACING IT WITH THE CLAW. SEE https://cdn.discordapp.com/attachments/875890646714576906/944007778526175282/Left_auto_SIDE-PICASSO.png FOR REFERENCE";
+	// SIDE
+  inchDrive(61.19 - mogoStopDist); // GO TO THE MOGO
+  claw.set(!CLAW_OPEN); // CLAW IT
+  // ALLIANCE GOAL
+  inchDrive(-40.714 + mogoStopDist, 0);// GO TO THE DIAGONAL OF APPROACH. LOWER MOGO LIFT.
+  gyroturn(-25 - Gyro.rotation(degrees), facing); // POINT MOGO LIFT AT THE ALLIANCE GOAL. change the 30.
+  inchDrive(-20, 0); // GET MOGO INTO MOGO LIFT.
+  mogoTilt(!TILT_OPEN);
+  // RINGS
+  inchDrive(40); // align. this probably wont work.
+  turnTo(90);
+  rings(true);
+  inchDrive(2.5 * UNITSIZE);
+  claw.set(CLAW_OPEN);
+  // MID
+  gyroturn(-90,facing);
+  inchDrive(1 * UNITSIZE);
+  claw.set(!CLAW_OPEN);
+  inchDrive(-1 * UNITSIZE);
+  wait(300,msec);
 }
 
 //driver controls,dont change unless your jaehoon or sean
@@ -446,24 +476,30 @@ void driver() {
 		int rstick=Controller1.Axis2.position();
 		int lstick=Controller1.Axis3.position();
 		drive(lstick, rstick,10);
-		int8_t tmp, ringSpeed = 66;
+		int8_t tmp, ringSpeed = 87;
     // mogoTilt controls
     if (!Controller1.ButtonR2.pressing()) {
       r2Down = false;
     }
     else if (!r2Down) {
-      mogoTilt(!MogoTilt1.value());
+      mogoTilt(!MogoTilt.value());
       r2Down = true;
     }
     // ring controls
     if (!Controller1.ButtonR1.pressing()) {
       r1Down = false;
     }
-    else if (!r2Down) {
+    else if (!r1Down) {
       ringsOn = !ringsOn;
       r1Down = true;
     }
-    rings(ringsOn);
+		if (Controller1.ButtonY.pressing()) { // turn off rings
+			ringsOn = false;
+		}
+		else if (Controller1.ButtonB.pressing()) { // reverse rings
+      ringSpeed = -100;
+		}
+    rings(ringsOn || ringSpeed < 0,ringSpeed);
 		// lift control
 		tmp = 100 * (Controller1.ButtonL1.pressing() - Controller1.ButtonL2.pressing());
 		if (tmp == 0) {
@@ -473,13 +509,6 @@ void driver() {
 			Lift.spin(forward, tmp, percent);
 		}
   
-		if (Controller1.ButtonY.pressing()) { // hook down
-			ringsOn = false;
-		}
-		else if (Controller1.ButtonB.pressing()) { // hook up or maybe the opposite 
-			ringsOn = true;
-      ringSpeed = -66;
-		}
 
 		if (Controller1.ButtonX.pressing()) { // claw close
 			claw.set(false);
