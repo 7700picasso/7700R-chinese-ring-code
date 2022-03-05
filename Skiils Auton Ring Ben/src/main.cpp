@@ -39,6 +39,7 @@
 
 #include "vex.h"
 #include <math.h>
+#include <cstdlib>
 
 using namespace vex;
 
@@ -46,7 +47,7 @@ using namespace vex;
 competition Competition;
 
 // define your global Variables here
-std::string str = "";
+char *str = "";
 const long double pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825; // much more accurate than 3.14. accurate enough to go across the universe and be within an atom of error
 
 #define Diameter 3.25
@@ -247,7 +248,7 @@ void clashRoyal(bool state) {
   ClashRoyal2.set(state);
 }
 
-void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = 100, double accuracy = 0.25) {
+void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = 100, bool raiseMogo = false, double accuracy = 0.25) {
 	double Kp = 10; // was previously 50/3
 	double Ki = 2; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
@@ -282,6 +283,9 @@ void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_
     if (endClaw && isOpen && (/*DistClaw.objectDistance(inches) < 2 ||*/ fabs(error) <= clawDist)) { // close claw b4 it goes backwards.
 	    if (target > 0) Claw(!CLAW_OPEN);
       else mogoTilt(!TILT_OPEN);
+    }
+    if (raiseMogo && !isOpen) {
+      Lift.spin(forward,100,percent);
     }
   }
 	brakeDrive();
@@ -439,7 +443,7 @@ bool runningAuto = 0;
 }
 vex::thread POS(printPos);*/
 //                                                        if this runs for 4.3 billion msecs, then skills is broken, and our battery is magical v
-void driveTo(double x2, double y2, bool Reverse = false, bool endClaw = false, double offset = 0, double clawDist = 6, uint32_t maxTime = INF, double maxSpeed = 100, double accuracy = 0.25) {
+void driveTo(double x2, double y2, bool Reverse = false, bool endClaw = false, double offset = 0, double clawDist = 6, uint32_t maxTime = INF, double maxSpeed = 100, bool raiseMogo = false, double accuracy = 0.25) {
   // point towards target
   wait(200, msec);
 	// get positional data
@@ -451,7 +455,7 @@ void driveTo(double x2, double y2, bool Reverse = false, bool endClaw = false, d
   // go to target
   // volatile double distSpeed = 100;
   double target = (1 - Reverse * 2) * (sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)) - offset);
-  unitDrive(target / UNITSIZE, endClaw, clawDist, maxTime, maxSpeed, accuracy);
+  unitDrive(target / UNITSIZE, endClaw, clawDist, maxTime, maxSpeed, raiseMogo, accuracy);
 
   /*return; // end cuz everything after this is experimental.
 
@@ -573,84 +577,67 @@ void auton() {
   // prep stuff
   liftTime(-50, 0, false);
  	brakeDrive(); // set motors to brake
-  // GET LEFT YELLOW
+  // CLAW LEFT YELLOW
 	driveTo(-1.5,0,false,true,5); // grab it
   Lift.setPosition(0, degrees);
 	liftTo(LIFT_UP, 0); // raise lift
-	// LEFT BLUE
+	// TILT LEFT BLUE + RINGS
   unitDrive(-1.667);
-	driveTo(-1.3,-2.5,true,true,6,3,1500);
-  // FILL LEFT BLUE WITH RINGS
-  driveTo(-1.8,-1);
+	driveTo(-1.3,-2.5,true,true,6,3,1500); // get it
+  driveTo(-1.8,-1); // align with rings
   rings(true);
-  driveTo(0,-1,false,false,6,0,INF,75);
+  driveTo(0,-1,false,false,6,0,INF,50); // fill it with rings
   rings(false);
 	// PLATFORM LEFT YELLOW
   driveTo(-0.15,-1.8,false,false,0,0,1300); // first value must be experimented with
 	Claw(CLAW_OPEN); // drop it
-  unitDrive(-0.25); // back up
+  driveTo(-0.15,1.5,true); // back up
   // DROP LEFT BLUE 
+  liftTo(-10,0); // lower lift
   turnTo(90); // set it down
-  liftTo(-10,0); // lower lift
-  mogoTilt(TILT_OPEN);
-  unitDrive(0.25);
-	// GET TALL MOGO & BRING TO OTHER SIDE
-  driveTo(0,0,false,true,0,6);
-  liftTo(15,20); // raise lift. Reduces friction.
-  driveTo(-1, 1.5);
-  turnTo(90); // point away from the next goal. We need to drop the tall goal
-  liftTo(-10,0); // lower lift
-  liftWait(2); // wait until lift is lowered
-  Claw(CLAW_OPEN); // drop the mogo
-  // GET LEFT RED
-  driveTo(-2.5,1.5,true,true,3,3,2000);
-  liftTo(20,0);
-  // FILL LEFT RED WITH RINGS 
-  rings(true); // start intake
-  driveTo(-2,0);
-  driveTo(1.5, 0, false, false, 8);
-  // GET RIGHT YELLOW
-  unitDrive(-0.25); // back up bc we're probably gonna hit the mogo or smthn if we dont
-  liftTo(-10,0); // lower lift
-  liftWait(2); // wait until lift is lowered
-  rings(false); // turn off intake
-  unitDrive(2 / 3, true, 4); // get it
+  mogoTilt(TILT_OPEN); // drop it
+  unitDrive(0.25); // avoid moving it from rotating
+  // CLAW RIGHT YELLOW
+  driveTo(1.5,0,false, true, -39,39,INF,100,true); // get it and align for next goal
+  liftTo(LIFT_UP,0); // position lift
+  // TILT RIGHT RED
+  driveTo(5 / 3, 2.5, true, true, 6, 3, 2000); // get it
+  unitDrive(2); // back up
   // PLATFORM RIGHT YELLOW
-  liftTo(LIFT_UP, 0);
   driveTo(0.6,-1.8, false, false, 0, 0, 2500); // go to platform
 	Claw(CLAW_OPEN); // drop it
-  // RELOCATE LEFT RED TO CLAW
-  unitDrive(-0.5); // BACK UP
-  liftTo(-10, 0); // lower lift
-  mogoTilt(TILT_OPEN); // drop it
-  unitDrive(0.25); // GIVE ENOUGH SPACE TO TURN
-  gyroturn(180); // turn around
-  liftWait(5); // ensure lift is low enough
-  unitDrive(0.4, true, 4); // get it with claw
-  // PLATFORM LEFT RED
-  liftTo(LIFT_UP, 0); // raise lift
-  driveTo(0.8,-1.8, false, false, 0, 0, 1500); // go to platform 
-  Claw(CLAW_OPEN); // drop the goal
-  // GET LEFT BLUE
   unitDrive(-0.25); // back up
-  liftTo(-10, 0); // lower lift
-  pointAt(-0.75, -1.5); // point at the mogo
-  liftWait(10); // ensure that the lift is low enough
-  driveTo(-0.75, -1.5, false, true, 0, 3); // get the mogo
-  // GET RIGHT RED
-  liftTo(LIFT_UP, 0); // raise lift
-  driveTo(1, 1.75, true); // align on the diagonal
-  driveTo(5 / 3, 2.5, true, true, 6, 3, 1500); // get it
-  unitDrive(0.25); // back up
-  rings(true); // turn on intake
-  driveTo(1.5,-1.75); // bring it back to red ride
-  // GET RIGHT BLUE
-  mogoTilt(TILT_OPEN); // drop the mogo
-  driveTo(2.5, -1.5, true, true, 3, 3, 1333); // get it
-  // FILL RIGHT BLUE WITH RINGS
-  driveTo(2, -1.375,false,false, 0, 0, 1333); // align with rings
-	driveTo(2, 2.7, false, false, 0, 0, 4000); // use wall to align with the platform.
+  // DROP RIGHT RED
+  mogoTilt(TILT_OPEN); // drop it.
+  // CLAW MID
+  liftTo(-10,0); // lower lift
+  driveTo(0,0,false, true, -35.625 / sin(pi / 180 * Gyro.rotation(degrees)), 35.625 / sin(pi / 180 * Gyro.rotation(degrees)),INF, 100, true); // get it and align with next mogo and raise lift
+  liftTo(LIFT_UP,0); // raise lift
+  // TILT LEFT RED + RINGS
+  driveTo(-2.5,1.5,true,true,3,3,2250); // get it
+  driveTo(-2,1.5,false,false,0,0,1000); // align with rings
+  rings(true);
+  driveTo(-2,0); // ring line 1
+  driveTo(0,0); // ring line 2
+  // PLATFORM MID
+  driveTo(0,-1.75,false,false,false,false,2500); // go to platform
+  Claw(CLAW_OPEN); // drop it
+  rings(false); // turn off rings
+  driveTo(0,-1.5,true); // back up
+  liftTo(-10,0); // lower lift
+  // DROP LEFT RED
+  mogoTilt(TILT_OPEN); // drop it
+  // CLAW LEFT BLUE
+  pointAt(-1,-1.5); // aim
+  liftWait(5); // ensure that the lift is low enough
+  unitDrive(1 / 3,true,3); // get it
+  liftTo(LIFT_UP,0); // raise lift
+  // TILT RIGHT BLUE + RINGS
+  driveTo(2.5,-1.5, true,true,3,3,3000); // get it
+  driveTo(2,-1.5, false,false,0,0,1000); // align with rings
+  rings(true); // turn on rings
 	// ALIGN FOR PARKING
+	driveTo(2, 2.7, false, false, 0, 0, 4000); // use wall to align with the platform. also fill the goal with rings
 	unitDrive(-3.5 / UNITSIZE); // back up from wall
 	turnTo(-90); // point straight
 	unitDrive(0.4); // approach platform
@@ -659,7 +646,9 @@ void auton() {
 	liftTime(0, 0); // allow lift to get shoved a bit up.
   // PARK
   unitDrive(49 / UNITSIZE); // hopefully goes to the middle
-  wait(750,msec); // wait before continuing
+  if (fabs(Gyro.pitch(degrees)) < 20) { // don't pause for no reason
+    wait(750,msec); // wait before continuing
+  }
   balance(); // just in case its not balanced.
 }
 
