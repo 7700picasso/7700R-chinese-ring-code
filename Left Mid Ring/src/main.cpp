@@ -26,7 +26,7 @@
 // rightmiddle          motor         4               
 // Lift                 motor         10              
 // Gyro                 inertial      19              
-// GPS                  gps           21              
+// GPS                  gps           8               
 // DistFront            distance      15              
 // DistBack             distance      16              
 // DistClaw             distance      17              
@@ -321,7 +321,7 @@ void balance() { // WIP
   uint8_t lastTip = sgn(pitch);
   bool wasTipping = true;
   volatile uint32_t startTime = vex::timer::system();
-  double stopAng = 20;
+  double stopAng = 21;
   while (vex::timer::system() - startTime < 1300) {
     pitch = Gyro.pitch(degrees);
     speed = Kp * pitch;
