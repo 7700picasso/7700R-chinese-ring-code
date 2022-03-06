@@ -251,7 +251,7 @@ void clashRoyal(bool state) {
   ClashRoyal2.set(state);
 }
 
-void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = 75, bool raiseMogo = false, double accuracy = 0.25) {
+void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = 67, bool raiseMogo = false, double accuracy = 0.25) {
 	double Kp = 3; // was previously 50/3
 	double Ki = 0; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
@@ -303,7 +303,7 @@ void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_
 
 void balance() { // WIP
   Brain.Screen.clearScreen();
-  double Kp = 1.2;
+  double Kp = 4;
   double Kt = 0.15; // constant for tip counts. This acts like Ki.
   volatile double speed;
   volatile double pitch = Gyro.pitch(degrees);
@@ -314,7 +314,7 @@ void balance() { // WIP
 
   double step = 1, oldStep = step;
   double upper = 100, lower = -100;
-  double backCoef = 1;
+  double backCoef = 4;
   uint8_t inclineDir = sgn(pitch);
   uint8_t overCount = 0, underCount = 0; // over is how many times it went too far back. Under is how many times it didn't back up enough.
 
@@ -376,24 +376,26 @@ void balance() { // WIP
   Brain.Screen.printAt(1, 150, "i am done ");
 }
 
-void gyroturn(double target, double accuracy = 1) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
+void gyroturn(double target, double maxSpeed = 67, uint32_t maxTime = INF, double accuracy = 1) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
   double Kp = 0.5;
   double Ki = 0.1;
   double Kd = 1.5;
-	double decay = 0.5; // integral decay
+  double decay = 0.5; // integral decay
 	
   volatile double sum = 0;
 
   volatile double speed;
   volatile double error = target;
   volatile double olderror = error;
+  uint32_t startTime = vex::timer::system();
 
   target += Gyro.rotation(degrees);
 
-  while(fabs(error) > accuracy || fabs(speed) > 1) { //fabs = absolute value while loop again
+  while ((fabs(error) > accuracy || fabs(speed) > 1) && vex::timer::system() - startTime < maxTime) { //fabs = absolute value while loop again
     error = target - Gyro.rotation(degrees);; //error gets smaller closer you get,robot slows down
     sum = sum * decay + error; 
     speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
+    speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
     drive(speed, -speed, 10);
     Brain.Screen.printAt(1, 60, "speed = %0.2f    degrees", speed);
     olderror = error;
@@ -404,34 +406,11 @@ void turnTo(double target, double accuracy = 1) {
   gyroturn(mod(target - Gyro.rotation(degrees) - 180, 360) - 180, accuracy);
 }
 
-void pointAt(double x2, double y2, bool Reverse = false, double x1 = -GPS.yPosition(inches), double y1 = GPS.xPosition(inches), uint32_t maxTime = INF, double accuracy = 1) { 
+void pointAt(double x2, double y2, bool Reverse = false, uint32_t maxSpeed = 67, uint32_t maxTime = INF, double x1 = -GPS.yPosition(inches), double y1 = GPS.xPosition(inches), double accuracy = 1) { 
 	// point towards targetnss 
   x2 *= UNITSIZE, y2 *= UNITSIZE;
 	double target = degToTarget(x1, y1, x2, y2, Reverse, Gyro.rotation(degrees)); // I dont trust the gyro for finding the target, and i dont trst the gps with spinning
-
-	// using old values bc they faster
-	double Kp = 0.5;
-	double Ki = 0.1;
-	double Kd = 1.5;
-	double decay = 0.5; // integral sum decay.
-
-	volatile double sum = 0;
-
-	volatile double speed;
-	volatile double error = target;
-	volatile double olderror = error;
-  uint32_t startTime = vex::timer::system();
-	
-	target += Gyro.rotation(degrees); // I trust gyro better for turning.
-
-	while((fabs(error) > accuracy || fabs(error - olderror) > 0.05) && vex::timer::system() - startTime < maxTime) { // fabs = absolute value while loop again
-		error = target - Gyro.rotation(degrees); //error gets smaller closer you get,robot slows down
-		sum = sum * decay + error;
-		speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
-		drive(speed, -speed, 10);
-		olderror = error;
-	}
-	brakeDrive();
+	gyroturn(target,maxSpeed,maxTime,accuracy);
 }
 bool runningAuto = 0;
 /*void printPos() {
@@ -451,7 +430,7 @@ void driveTo(double x2, double y2, bool Reverse = false, bool endClaw = false, d
   wait(200, msec);
 	// get positional data
   double x1 = -GPS.yPosition(inches), y1 = GPS.xPosition(inches);
-  pointAt(x2, y2, Reverse, x1, y1, maxTime / 2);
+  pointAt(x2, y2, Reverse, maxSpeed, maxTime, x1, y1);
   x2 *= UNITSIZE, y2 *= UNITSIZE;
   x1 = -GPS.yPosition(inches), y1 = GPS.xPosition(inches);
 
@@ -581,21 +560,18 @@ void auton() {
   Lift.setPosition(0, degrees);
  	brakeDrive(); // set motors to brake
 	// TILT LEFT BLUE
-  unitDrive(-0.25,true,3); // get it
-  unitDrive(0.25);
-
-  unitDrive(-2);
-	liftTo(LIFT_UP, 0); // raise lift
+  unitDrive(-0.3,true,3); // get it
+  unitDrive(0.3); // back up
   // CLAW LEFT YELLOW + RINGS
-  driveTo(-1.5,0,false,true,0,3); // align with rings
-  liftTo(LIFT_UP,0); // raise lift
+  driveTo(-1.5,0,false,true,0,3); // get it
   driveTo(-5/3,-1); // align with rings
+  liftTo(LIFT_UP,0); // raise lift
   rings(true);
-  driveTo(0.15,-1,false,false,0,0,INF,50); // fill it with rings
+  driveTo(0.15,-1,false,false,0,0,INF,33); // fill it with rings
   rings(false);
-	// PLATFORM LEFT YELLOW
+  // PLATFORM LEFT YELLOW
   driveTo(-0.15,-1.8,false,false,0,0,1300); // first value must be experimented with
-	Claw(CLAW_OPEN); // drop it
+  Claw(CLAW_OPEN); // drop it
   driveTo(-0.15,1.5,true); // back up
   // DROP LEFT BLUE 
   liftTo(-10,0); // lower lift
