@@ -55,7 +55,7 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define MOGO_DIST 5
 #define NOTE str = 
 #define INF 4294967295
-#define CLAW_OPEN false
+#define CLAW_OPEN true
 #define TILT_OPEN false
 #define LIFT_UP 85
 

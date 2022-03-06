@@ -55,7 +55,7 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define MOGO_DIST 5
 #define NOTE str = 
 #define INF 4294967295
-#define CLAW_OPEN false
+#define CLAW_OPEN true
 #define TILT_OPEN false
 #define LIFT_UP 85
 
@@ -366,12 +366,57 @@ void balance() { // WIP
   }
   Brain.Screen.printAt(1, 150, "i am done ");
 }
-
+void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = 100, bool raiseMogo = false, double accuracy = 0.25) {
+	double Kp = 5; // was previously 50/3
+	double Ki = 1; // to increase speed if its taking too long.
+	double Kd = 20; // was previously 40/3
+	double decay = 0.5; // integral decay
+	
+	target *= UNITSIZE; // convert UNITS to inches
+	
+	volatile double speed;
+	volatile double error = target;
+	volatile double olderror = error;
+	 
+  leftDrive1.setPosition(0, rev);
+	leftDrive2.setPosition(0, rev);
+  leftmiddle.setPosition(0, rev);
+  rightDrive1.setPosition(0, rev);
+  rightDrive2.setPosition(0, rev);
+  rightmiddle.setPosition(0, rev);
+	 
+  volatile double sum = 0;
+  uint32_t startTime = vex::timer::system();
+  bool isOpen;
+	 
+  while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
+    // did this late at night but this while is important 
+    error = target - minRots() * Diameter * pi; //the error gets smaller when u reach ur target
+    sum = sum * decay + error;
+    speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
+    speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
+    drive(speed, speed, 10);
+    olderror = error;
+    isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
+    if (endClaw && isOpen && (/*DistClaw.objectDistance(inches) < 2 ||*/ fabs(error) <= clawDist)) { // close claw b4 it goes backwards.
+	    if (target > 0) Claw(!CLAW_OPEN);
+      else mogoTilt(!TILT_OPEN);
+    }
+    if (raiseMogo && !isOpen) {
+      Lift.spin(forward,100,percent);
+    }
+  }
+	brakeDrive();
+  if (endClaw && isOpen) {
+    if (target > 0) Claw(!CLAW_OPEN);
+    else mogoTilt(!TILT_OPEN);
+  }
+}
 
 void gyroturn(double target, double &idealDir,double accuracy = 1) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
-  double Kp = 1.25; // was 2.0
+  double Kp = 0.8; // was 2.0
   double Ki = 0.1; // adds a bit less than 50% when there is 90° left.
-  double Kd = 1.0; // was 16.0
+  double Kd = 1.5; // was 16.0
  
   double currentDir = Gyro.rotation(degrees);
   double speed = 100;
@@ -385,7 +430,7 @@ void gyroturn(double target, double &idealDir,double accuracy = 1) { // idk mayb
   idealDir += target;
   target = currentDir + idealDir - Gyro.rotation(degrees);
   
-  while(fabs(error) > accuracy){ //fabs = absolute value while loop again
+  while(fabs(error) > accuracy || fabs(speed) > 10){ //fabs = absolute value while loop again
     currentDir = Gyro.rotation(degrees);
     error = target - currentDir; //error gets smaller closer you get,robot slows down
     sum = sum * lambda + error;
@@ -427,6 +472,7 @@ void auton() {
 
 	//runningAuto = true;
   double facing = 11.3;
+  Gyro.setRotation(11.3, deg);
   double mogoStopDist = 6; // STOP THIS MANY UNITS BEFORE A MOGO. FEEL FREE TO CHANGE
 
 	while (Gyro.isCalibrating() || GPS.isCalibrating()) { // dont start until gyro and GPS are calibrated
@@ -435,15 +481,15 @@ void auton() {
   "SIDE-RINGS-MID";
   "START AT THE HALFWAY LINE NEXT TO THE ALLIANCE GOAL, FACING IT WITH THE CLAW. SEE https://cdn.discordapp.com/attachments/875890646714576906/944007778526175282/Left_auto_SIDE-PICASSO.png FOR REFERENCE";
 	// SIDE
-  inchDrive(61.19 - mogoStopDist); // GO TO THE MOGO
-  Claw(!CLAW_OPEN); // CLAW IT
+  unitDrive(3,true,3); // GO TO THE MOGO
+  unitDrive(-2);
   // ALLIANCE GOAL
-  inchDrive(-40.714 + mogoStopDist, 0);// GO TO THE DIAGONAL OF APPROACH. LOWER MOGO LIFT.
+  //inchDrive(-40.714-3, 0);// GO TO THE DIAGONAL OF APPROACH. LOWER MOGO LIFT.
   gyroturn(-25 - Gyro.rotation(degrees), facing); // POINT MOGO LIFT AT THE ALLIANCE GOAL. change the 30.
-  inchDrive(-20, 0); // GET MOGO INTO MOGO LIFT.
-  mogoTilt(!TILT_OPEN);
+  unitDrive(-0.8,true,1,INF,50); // GET MOGO INTO MOGO LIFT.
+  //mogoTilt(!TILT_OPEN);
   // RINGS
-  inchDrive(40); // align. this probably wont work.
+  inchDrive(50); // align. this probably wont work.
   turnTo(90);
   rings(true);
   inchDrive(2.5 * UNITSIZE);

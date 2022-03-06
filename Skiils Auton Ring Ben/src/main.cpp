@@ -55,9 +55,9 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define UNITSIZE 23.75 // tile size
 #define NOTE str = 
 #define INF 4294967295
-#define CLAW_OPEN false
+#define CLAW_OPEN true
 #define TILT_OPEN false
-#define LIFT_UP 85
+#define LIFT_UP 66
 
 // for red comments
 
@@ -251,9 +251,9 @@ void clashRoyal(bool state) {
   ClashRoyal2.set(state);
 }
 
-void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = 100, bool raiseMogo = false, double accuracy = 0.25) {
-	double Kp = 10; // was previously 50/3
-	double Ki = 2; // to increase speed if its taking too long.
+void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = 75, bool raiseMogo = false, double accuracy = 0.25) {
+	double Kp = 3; // was previously 50/3
+	double Ki = 0; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
 	
@@ -377,9 +377,9 @@ void balance() { // WIP
 }
 
 void gyroturn(double target, double accuracy = 1) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
-  double Kp = 1.1;
-  double Ki = 0.2;
-  double Kd = 1.25;
+  double Kp = 0.5;
+  double Ki = 0.1;
+  double Kd = 1.5;
 	double decay = 0.5; // integral decay
 	
   volatile double sum = 0;
@@ -410,9 +410,9 @@ void pointAt(double x2, double y2, bool Reverse = false, double x1 = -GPS.yPosit
 	double target = degToTarget(x1, y1, x2, y2, Reverse, Gyro.rotation(degrees)); // I dont trust the gyro for finding the target, and i dont trst the gps with spinning
 
 	// using old values bc they faster
-	double Kp = 1.1;
-	double Ki = 0.2;
-	double Kd = 1.25;
+	double Kp = 0.5;
+	double Ki = 0.1;
+	double Kd = 1.5;
 	double decay = 0.5; // integral sum decay.
 
 	volatile double sum = 0;
@@ -446,7 +446,7 @@ bool runningAuto = 0;
 }
 vex::thread POS(printPos);*/
 //                                                        if this runs for 4.3 billion msecs, then skills is broken, and our battery is magical v
-void driveTo(double x2, double y2, bool Reverse = false, bool endClaw = false, double offset = 0, double clawDist = 6, uint32_t maxTime = INF, double maxSpeed = 100, bool raiseMogo = false, double accuracy = 0.25) {
+void driveTo(double x2, double y2, bool Reverse = false, bool endClaw = false, double offset = 0, double clawDist = 6, uint32_t maxTime = INF, double maxSpeed = 75, bool raiseMogo = false, double accuracy = 0.25) {
   // point towards target
   wait(200, msec);
 	// get positional data
@@ -578,18 +578,26 @@ void auton() {
 	*/
 
   // prep stuff
-  liftTime(-50, 0, false);
- 	brakeDrive(); // set motors to brake
-  // CLAW LEFT YELLOW
-	driveTo(-1.5,0,false,true,5); // grab it
   Lift.setPosition(0, degrees);
+ 	brakeDrive(); // set motors to brake
+	// TILT LEFT BLUE
+  unitDrive(-0.25,true,3); // get it
+  unitDrive(0.25);
+
+  unitDrive(-2);
 	liftTo(LIFT_UP, 0); // raise lift
-	// TILT LEFT BLUE + RINGS
-  unitDrive(-1.667);
-	driveTo(-1.3,-2.5,true,true,6,3,1500); // get it
-  driveTo(-1.8,-1); // align with rings
+  // CLAW LEFT YELLOW + RINGS
+  driveTo(-1.5,0,false,true,0,3); // align with rings
+  liftTo(LIFT_UP,0); // raise lift
+
+  // TEMP
+  gyroturn(90);
+  unitDrive(-2);
+  wait(1000000,msec);
+  //ok done
+  driveTo(-5/3,-1); // align with rings
   rings(true);
-  driveTo(0,-1,false,false,6,0,INF,50); // fill it with rings
+  driveTo(0.15,-1,false,false,0,0,INF,50); // fill it with rings
   rings(false);
 	// PLATFORM LEFT YELLOW
   driveTo(-0.15,-1.8,false,false,0,0,1300); // first value must be experimented with
@@ -597,7 +605,7 @@ void auton() {
   driveTo(-0.15,1.5,true); // back up
   // DROP LEFT BLUE 
   liftTo(-10,0); // lower lift
-  turnTo(90); // set it down
+  turnTo(90); // aim to drop it
   mogoTilt(TILT_OPEN); // drop it
   unitDrive(0.25); // avoid moving it from rotating
   // CLAW RIGHT YELLOW
