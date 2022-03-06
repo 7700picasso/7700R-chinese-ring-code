@@ -589,12 +589,6 @@ void auton() {
   // CLAW LEFT YELLOW + RINGS
   driveTo(-1.5,0,false,true,0,3); // align with rings
   liftTo(LIFT_UP,0); // raise lift
-
-  // TEMP
-  gyroturn(90);
-  unitDrive(-2);
-  wait(1000000,msec);
-  //ok done
   driveTo(-5/3,-1); // align with rings
   rings(true);
   driveTo(0.15,-1,false,false,0,0,INF,50); // fill it with rings
