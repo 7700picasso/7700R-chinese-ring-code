@@ -438,23 +438,23 @@ void auton() {
   */
   // MID
   unitDrive(2.5 * DIAG - 6, true, 3); // get it.
-  liftDeg(20, 0); // raise lift to reduce friction LIFT BY 10° TO REDUCE FRICTION
+  liftDeg(15, 0); // raise lift to reduce friction LIFT BY 10° TO REDUCE FRICTION
   unitDrive(-1.5 * DIAG); // go back
   // SIDE
-  liftTo(-10);
-  Claw(false);
-  gyroturn(-45);
-  unitDrive(1.4,true,3);
-  liftDeg(20);
+  liftTo(-10,0); // lower lift
+  Claw(CLAW_OPEN); // drop the goal
+  gyroturn(45); // face side
+  unitDrive(1.4,true,4);
+  liftDeg(20,0);
   unitDrive(-1.4); // go home
   // ALLIANCE
-  gyroturn(90);
+  gyroturn(-90);
   unitDrive(-0.5,true,2); // get it
   // rings
   gyroturn(-90);
   rings(true);
   unitDrive(1.5,false,0,INF,67); // get the rings
-  unitDrive(-1.5); // go home
+  unitDrive(-1.8); // go home
 }
 
 //driver controls,dont change unless your jaehoon or sean
