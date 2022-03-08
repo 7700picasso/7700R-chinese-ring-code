@@ -233,7 +233,6 @@ void rings(bool on, int speed = 100) { // i think 100 is a bit fast
 void Claw(bool open) {
   //wait(50 * open, msec);
   claw1.set(open);
-  claw2.set(open);
   //wait(50 * !open, msec);
 }
 
@@ -567,11 +566,11 @@ void auton() {
   rings(true);
   liftTo(LIFT_UP,0); // raise lift
   driveTo(-1.667,-1); // align with rings
-  driveTo(0,-1,false,false,0,0,INF,66); // fill LEFT BLUE with rings
-  rings(false);
+  driveTo(-0.1,-1,false,false,0,0,INF,66); // fill LEFT BLUE with rings
   // PLATFORM LEFT YELLOW
   turnTo(180);
   unitDrive(1,false,0,1300);
+	rings(false); // disable rings
   Claw(CLAW_OPEN); // drop it
   unitDrive(-0.25,false,0,1000);//driveTo(0,-1.5,true); // back up
   // DROP LEFT BLUE 
@@ -580,8 +579,8 @@ void auton() {
   mogoTilt(TILT_OPEN); // drop it
   unitDrive(0.25); // avoid bumping it
   // CLAW RIGHT YELLOW
-  gyroturn(-150);
-  driveTo(1.5,0.333,false, true, -30,30,4000,SPEED_CAP,true); // get it and align for next goal
+  gyroturn(-150,100,INF,5); // face the general direction. does not need to pe a precise turn
+  driveTo(1.5,0.333,false, true, -24,24,4000,SPEED_CAP,true); // get it and align for next goal
   liftTo(LIFT_UP,0); // position lift
   // TILT RIGHT RED
   driveTo(1.25, 2.5, true, true, 3, 3, 2000,67); // get it
@@ -601,24 +600,26 @@ void auton() {
   driveTo(-2.5,1.5,true,true,3,3,2250); // get it
   driveTo(-2,1.5,false,false,0,0,1000); // align with rings
   rings(true);
-  driveTo(-2,0); // ring line 1
+	gyroturn(-90);
+	unitDrive(1.5); // ring line 1
   driveTo(0,0); // ring line 2
   // PLATFORM MID
-  driveTo(0,-1.75,false,false,false,false,2500); // go to platform
-  wait(300,msec);
+	gyroturn(90); // face platform
+	unitDrive(1.5,false,0,1500); // go to platform
+  wait(300,msec); // pause
   Claw(CLAW_OPEN); // drop it
   rings(false); // turn off rings
-  driveTo(0,-1.5,true,false,0,0,INF,50); // back up
+	unitDrive(-0.25);
   liftTo(-10,0); // lower lift
   // DROP LEFT RED
   mogoTilt(TILT_OPEN); // drop it
   // CLAW LEFT BLUE
-  pointAt(-1,-1.5); // aim
-  liftWait(5); // ensure that the lift is low enough
-  unitDrive(1 / 3,true,3); // get it
+	gyroturn(-90);
+  liftWait(10); // ensure that the lift is low enough
+  unitDrive(1 / 3 ,true,4); // get it
   liftTo(LIFT_UP,0); // raise lift
   // TILT RIGHT BLUE + RINGS
-  driveTo(2.5,-1.5, true,true,3,3,3000); // get it
+  unitDrive(-2.333,true,3,4000); // get it
   driveTo(2,-1.5, false,false,0,0,1000); // align with rings
   rings(true); // turn on rings
 	// ALIGN FOR PARKING
@@ -627,7 +628,7 @@ void auton() {
 	turnTo(-90); // point straight
 	unitDrive(0.4); // approach platform
   liftTo(-10, 0); // bring down the platform.
-  liftWait(5, 2667); // wait for lift to lower. But not forever.
+  liftWait(10, 2667); // wait for lift to lower. But not forever.
 	liftTime(0, 0); // allow lift to get shoved a bit up.
   // PARK
   unitDrive(49 / UNITSIZE); // hopefully goes to the middle
