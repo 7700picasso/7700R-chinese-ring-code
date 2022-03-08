@@ -253,7 +253,7 @@ void clashRoyal(bool state) {
 }
 
 void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double accuracy = 0.75) {
-	double Kp = 6; // was previously 50/3
+	double Kp = 10; // was previously 50/3
 	double Ki = 1; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
@@ -570,7 +570,8 @@ void auton() {
   driveTo(0,-1,false,false,0,0,INF,66); // fill LEFT BLUE with rings
   rings(false);
   // PLATFORM LEFT YELLOW
-  driveTo(0,-1.8,false,false,0,0,1300); // first value must be experimented with
+  turnTo(180);
+  unitDrive(1,false,0,1300);
   Claw(CLAW_OPEN); // drop it
   unitDrive(-0.25,false,0,1000);//driveTo(0,-1.5,true); // back up
   // DROP LEFT BLUE 
@@ -579,10 +580,11 @@ void auton() {
   mogoTilt(TILT_OPEN); // drop it
   unitDrive(0.25); // avoid bumping it
   // CLAW RIGHT YELLOW
+  gyroturn(-150);
   driveTo(1.5,0.333,false, true, -30,30,4000,SPEED_CAP,true); // get it and align for next goal
   liftTo(LIFT_UP,0); // position lift
   // TILT RIGHT RED
-  driveTo(5 / 3, 2.5, true, true, 3, 3, 2000,50); // get it
+  driveTo(1.25, 2.5, true, true, 3, 3, 2000,67); // get it
   unitDrive(1.5,false,0,2500); // back up
   // PLATFORM RIGHT YELLOW
   driveTo(1.25,-1); // approach
