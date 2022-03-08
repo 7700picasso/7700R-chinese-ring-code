@@ -2661,20 +2661,20 @@ Linker script and memory map
                 0x0000000003800564                rings(bool, int)
  *fill*         0x00000000038005cc        0x4 
  .text._Z9inchDrivedd
-                0x00000000038005d0      0x130 build/src/main.o
+                0x00000000038005d0      0x140 build/src/main.o
                 0x00000000038005d0                inchDrive(double, double)
  .text._Z9unitDrivedbdmdbd
-                0x0000000003800700      0x358 build/src/main.o
-                0x0000000003800700                unitDrive(double, bool, double, unsigned long, double, bool, double)
+                0x0000000003800710      0x360 build/src/main.o
+                0x0000000003800710                unitDrive(double, bool, double, unsigned long, double, bool, double)
  .text._Z8gyroturndRdd
-                0x0000000003800a58      0x190 build/src/main.o
-                0x0000000003800a58                gyroturn(double, double&, double)
+                0x0000000003800a70      0x190 build/src/main.o
+                0x0000000003800a70                gyroturn(double, double&, double)
  .text._Z6turnTodd
-                0x0000000003800be8       0xb0 build/src/main.o
-                0x0000000003800be8                turnTo(double, double)
+                0x0000000003800c00       0xb0 build/src/main.o
+                0x0000000003800c00                turnTo(double, double)
  .text._Z5autonv
-                0x0000000003800c98      0x340 build/src/main.o
-                0x0000000003800c98                auton()
+                0x0000000003800cb0      0x328 build/src/main.o
+                0x0000000003800cb0                auton()
  .text._Z6driverv
                 0x0000000003800fd8      0x308 build/src/main.o
                 0x0000000003800fd8                driver()

@@ -50,7 +50,7 @@ competition Competition;
 char *str = "";
 const long double pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825; // much more accurate than 3.14. accurate enough to go across the universe and be within an atom of error
 
-#define Diameter 3.25
+#define Diameter 3.25 * 3 / 5
 #define UNITSIZE 23.75 // tile size
 #define MOGO_DIST 5
 #define NOTE str = 
@@ -221,7 +221,7 @@ void liftWait(double target, uint32_t maxTime = INF) {
 //example lift(-100,1200);  so lift 100% for 1200 msc
 // 100 is up and -100 is down,or other way around,you can figure that out
 
-void rings(bool on, int speed = 83) { // i think 100 is a bit fast
+void rings(bool on, int speed = 100) { // i think 100 is a bit fast
   if (on) {
     Rings.spin(forward, on * speed, percent);
   }
@@ -252,41 +252,51 @@ void clashRoyal(bool state) {
   ClashRoyal2.set(state);
 }
 
-void inchDrive(double target, double accuracy = 0.25) {
-  leftDrive1.setPosition(0,  rev);
-  leftDrive2.setPosition(0,  rev); // might only need 1 of 3 of these but im a dumbass so leave it 
-  leftmiddle.setPosition(0,  rev);
-
-  double 
-    speed,
-    error = target,
-    olderror = error,
-    Kp = 50 / 3, // about 16.667, was previously 10
-    Ki = 1, // to increase speed if its taking too long. Adds a bit over 50% speed when 12 inches left.
-    Kd = 40 / 3; // about 13.333, was previously 20.0
-
-  double sum = 0;
-  double decay = 0.5;
-
-  /*
-  dont use the drive function you dumbass AND DONT USE "//" for multiple lines
-  use inchdrive,this took me a while to code :(
-  its target/inches/amount then speed/percentage
-  examples
-  inchDrive(55, 100); go 55in forward at 100%
-  inchDrive(-55, 100); go 55in backwards at 100%
-  */
-
-  while(fabs(error) > accuracy){
+void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = 100, bool raiseMogo = false, double accuracy = 0.25) {
+	double Kp = 10; // was previously 50/3
+	double Ki = 1; // to increase speed if its taking too long.
+	double Kd = 20; // was previously 40/3
+	double decay = 0.5; // integral decay
+	
+	target *= UNITSIZE; // convert UNITS to inches
+	
+	volatile double speed;
+	volatile double error = target;
+	volatile double olderror = error;
+	 
+  leftDrive1.setPosition(0, rev);
+	leftDrive2.setPosition(0, rev);
+  leftmiddle.setPosition(0, rev);
+  rightDrive1.setPosition(0, rev);
+  rightDrive2.setPosition(0, rev);
+  rightmiddle.setPosition(0, rev);
+	 
+  volatile double sum = 0;
+  uint32_t startTime = vex::timer::system();
+  bool isOpen;
+	 
+  while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
     // did this late at night but this while is important 
-    // fabs = absolute value
-    error = target - leftmiddle.position(rev) * Diameter * pi; //the error gets smaller when u reach ur target
+    error = target - minRots() * Diameter * pi; //the error gets smaller when u reach ur target
     sum = sum * decay + error;
-    speed = Kp * error + Ki * decay + Kd * (error - olderror); // big error go fast slow error go slow 
+    speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
+    speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
     drive(speed, speed, 10);
     olderror = error;
+    isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
+    if (endClaw && isOpen && (/*DistClaw.objectDistance(inches) < 2 ||*/ fabs(error) <= clawDist)) { // close claw b4 it goes backwards.
+	    if (target > 0) Claw(!CLAW_OPEN);
+      else mogoTilt(!TILT_OPEN);
+    }
+    if (raiseMogo && !isOpen && (error + 6 < clawDist)) {
+      Lift.spin(forward,100,percent);
+    }
   }
-  brakeDrive();
+	brakeDrive();
+  if (endClaw && isOpen) {
+    if (target > 0) Claw(!CLAW_OPEN);
+    else mogoTilt(!TILT_OPEN);
+  }
 }
 
 
@@ -369,9 +379,9 @@ void balance() { // WIP
 }
 
 void gyroturn(double target, double &idealDir,double accuracy = 1) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
-  double Kp = 1.25; // was 2.0
-  double Ki = 0.1; // adds a bit less than 50% when there is 90° left.
-  double Kd = 1.0; // was 16.0
+  double Kp = 0.8; // was 2.0
+  double Ki = 0.0; // adds a bit less than 50% when there is 90° left.
+  double Kd = 1.5; // was 16.0
  
   double currentDir = Gyro.rotation(degrees);
   double speed = 100;
@@ -434,22 +444,23 @@ void auton() {
   "AUTO NUMBER 1";
   "SIDE-PICASSO-MID";
   // SIDE
-  inchDrive(55, 6); //go forward 55 inches, lower lift at 6 inches
-  Claw(!CLAW_OPEN);//close claw,just picked up that yellow mogo
-  inchDrive(-30,0);//go backwards 30 inches
-  gyroturn(-90, facing); //turn 90 degress with the robots back facing the right side mogo
-  Claw(CLAW_OPEN); // let go of mogo
-  // ALLIANCE
-  inchDrive(-15); // drive backwards to alliance goal
-  mogoTilt(!TILT_OPEN);
-  gyroturn(180, facing);// turn facing the yellow goal
+  unitDrive(2.3,true,4); // grab the mogo. Take some steroids
+  liftDeg(20,0);
+  unitDrive(-0.9); // drive backwards to escape any enemy claws
+  // ALLIANCE + RINGS
+  gyroturn(-45,facing);
+  unitDrive(-1.414 + 1 / 3,true,3,INF,50); // get it. slow down
   rings(true);
+  unitDrive(1.414 / 2 - 1/3); // align with rings
+  gyroturn(-45,facing); // face the wall
+  unitDrive(2,false,false,INF,67); // get the rings
+  rings(false); // turn off rings
   // MID
-  inchDrive(-33); // align
-  gyroturn(90, facing); // face mid (i think)
-  inchDrive(39); // get mid... I think
-  Claw(!CLAW_OPEN); // claw it
-  inchDrive(-44);
+  Claw(CLAW_OPEN); // DROP THE YELLOW GOAL
+  liftDeg(-30,0); // lower lift
+  gyroturn(90,facing); // face mid
+  unitDrive(0.667,true,4); // get it
+  unitDrive(-1); // go home
 }
 
 //driver controls,dont change unless your jaehoon or sean
@@ -475,7 +486,7 @@ void driver() {
 		int rstick=Controller1.Axis2.position();
 		int lstick=Controller1.Axis3.position();
 		drive(lstick, rstick,10);
-		int8_t tmp, ringSpeed = 87;
+		int8_t tmp, ringSpeed = 85;
     // mogoTilt controls
     if (!Controller1.ButtonR2.pressing()) {
       r2Down = false;

@@ -58,7 +58,7 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define CLAW_OPEN true
 #define TILT_OPEN false
 #define LIFT_UP 66
-#define SPEED_CAP 67
+#define SPEED_CAP 100
 
 // for red comments
 
@@ -221,7 +221,7 @@ void liftWait(double target, uint32_t maxTime = INF) {
 //example lift(-100,1200);  so lift 100% for 1200 msc
 // 100 is up and -100 is down,or other way around,you can figure that out
 
-void rings(bool on, int speed = 83) { // i think 100 is a bit fast
+void rings(bool on, int speed = 100) { // i think 100 is a bit fast
   if (on) {
     Rings.spin(forward, on * speed, percent);
   }
@@ -252,9 +252,9 @@ void clashRoyal(bool state) {
   ClashRoyal2.set(state);
 }
 
-void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double accuracy = 0.25) {
-	double Kp = 3; // was previously 50/3
-	double Ki = 0; // to increase speed if its taking too long.
+void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double accuracy = 0.75) {
+	double Kp = 6; // was previously 50/3
+	double Ki = 1; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
 	
@@ -378,8 +378,8 @@ void balance() { // WIP
 }
 
 void gyroturn(double target, double maxSpeed = SPEED_CAP, uint32_t maxTime = INF, double accuracy = 1) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
-  double Kp = 0.5;
-  double Ki = 0.0;
+  double Kp = 0.9;
+  double Ki = 0.05;
   double Kd = 1.5;
   double decay = 0.5; // integral decay
 	
@@ -426,7 +426,7 @@ bool runningAuto = 0;
 }
 vex::thread POS(printPos);*/
 //                                                        if this runs for 4.3 billion msecs, then skills is broken, and our battery is magical v
-void driveTo(double x2, double y2, bool Reverse = false, bool endClaw = false, double offset = 0, double clawDist = 6, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double accuracy = 0.25) {
+void driveTo(double x2, double y2, bool Reverse = false, bool endClaw = false, double offset = 0, double clawDist = 6, uint32_t maxTime = 4000, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double accuracy = 0.25) {
   // point towards target
   wait(200, msec);
 	// get positional data
@@ -561,30 +561,29 @@ void auton() {
   Lift.setPosition(0, degrees);
  	brakeDrive(); // set motors to brake
 	// TILT LEFT BLUE
-  unitDrive(-0.25,true,3); // get it
-  unitDrive(0.25); // back up
+  unitDrive(-0.5,true,3,1000); // get it
   // CLAW LEFT YELLOW + RINGS
-  driveTo(-1.5,0,false,true,0,3); // get it
-  driveTo(-5/3,-1); // align with rings
-  liftTo(LIFT_UP,0); // raise lift
+  driveTo(-1.63,0,false,true,0,3); // get it
   rings(true);
-  driveTo(0.15,-1,false,false,0,0,INF,33); // fill LEFT BLUE with rings
+  liftTo(LIFT_UP,0); // raise lift
+  driveTo(-1.667,-1); // align with rings
+  driveTo(0,-1,false,false,0,0,INF,66); // fill LEFT BLUE with rings
   rings(false);
   // PLATFORM LEFT YELLOW
-  driveTo(-0.15,-1.8,false,false,0,0,1300); // first value must be experimented with
+  driveTo(0,-1.8,false,false,0,0,1300); // first value must be experimented with
   Claw(CLAW_OPEN); // drop it
-  driveTo(-0.15,-1.5,true); // back up
+  unitDrive(-0.25,false,0,1000);//driveTo(0,-1.5,true); // back up
   // DROP LEFT BLUE 
   liftTo(-10,0); // lower lift
   turnTo(90); // aim to drop it
   mogoTilt(TILT_OPEN); // drop it
   unitDrive(0.25); // avoid bumping it
   // CLAW RIGHT YELLOW
-  driveTo(1.5,0,false, true, -39,39,INF,SPEED_CAP,true); // get it and align for next goal
+  driveTo(1.5,0.333,false, true, -30,30,4000,SPEED_CAP,true); // get it and align for next goal
   liftTo(LIFT_UP,0); // position lift
   // TILT RIGHT RED
   driveTo(5 / 3, 2.5, true, true, 3, 3, 2000,50); // get it
-  unitDrive(2); // back up
+  unitDrive(1.5,false,0,2500); // back up
   // PLATFORM RIGHT YELLOW
   driveTo(1.25,-1); // approach
   driveTo(0.6,-1.8, false, false, 0, 0, 1500,50); // go to platform
@@ -658,7 +657,7 @@ void driver() {
 		int rstick=Controller1.Axis2.position();
 		int lstick=Controller1.Axis3.position();
 		drive(lstick, rstick,10);
-		int8_t tmp, ringSpeed = 87;
+		int8_t tmp, ringSpeed = 100;
     // mogoTilt controls
     if (!Controller1.ButtonR2.pressing()) {
       r2Down = false;

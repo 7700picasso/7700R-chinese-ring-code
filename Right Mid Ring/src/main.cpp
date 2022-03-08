@@ -50,7 +50,7 @@ competition Competition;
 char *str = "";
 const long double pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825; // much more accurate than 3.14. accurate enough to go across the universe and be within an atom of error
 
-#define Diameter 3.25
+#define Diameter 3.25 * 3 / 5
 #define UNITSIZE 23.75 // tile size
 #define MOGO_DIST 5
 #define NOTE str = 
@@ -58,6 +58,7 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define CLAW_OPEN false
 #define TILT_OPEN false
 #define LIFT_UP 85
+#define DIAG sqrt(2)
 
 // for red comments
 
@@ -221,7 +222,7 @@ void liftWait(double target, uint32_t maxTime = INF) {
 //example lift(-100,1200);  so lift 100% for 1200 msc
 // 100 is up and -100 is down,or other way around,you can figure that out
 
-void rings(bool on, int speed = 83) {
+void rings(bool on, int speed = 87) {
   if (on) {
     Rings.spin(forward, on * speed, percent);
   }
@@ -252,41 +253,51 @@ void clashRoyal(bool state) {
   ClashRoyal2.set(state);
 }
 
-void inchDrive(double target, double accuracy = 1) {
-  leftDrive1.setPosition(0,  rev);
-  leftDrive2.setPosition(0,  rev); // might only need 1 of 3 of these but im a dumbass so leave it 
-  leftmiddle.setPosition(0,  rev);
-
-  double 
-    speed,
-    error = target,
-    olderror = error,
-    Kp = 50 / 3, // about 16.667, was previously 10
-    Ki = 1, // to increase speed if its taking too long. Adds a bit over 50% speed when 12 inches left.
-    Kd = 40 / 3; // about 13.333, was previously 20.0
-
-  double sum = 0;
-  double decay = 0.5;
-
-  /*
-  dont use the drive function you dumbass AND DONT USE "//" for multiple lines
-  use inchdrive,this took me a while to code :(
-  its target/inches/amount then speed/percentage
-  examples
-  inchDrive(55, 100); go 55in forward at 100%
-  inchDrive(-55, 100); go 55in backwards at 100%
-  */
-
-  while(fabs(error) > accuracy){
+void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = 100, bool raiseMogo = false, double accuracy = 0.25) {
+	double Kp = 5; // was previously 50/3
+	double Ki = 1; // to increase speed if its taking too long.
+	double Kd = 20; // was previously 40/3
+	double decay = 0.5; // integral decay
+	
+	target *= UNITSIZE; // convert UNITS to inches
+	
+	volatile double speed;
+	volatile double error = target;
+	volatile double olderror = error;
+	 
+  leftDrive1.setPosition(0, rev);
+	leftDrive2.setPosition(0, rev);
+  leftmiddle.setPosition(0, rev);
+  rightDrive1.setPosition(0, rev);
+  rightDrive2.setPosition(0, rev);
+  rightmiddle.setPosition(0, rev);
+	 
+  volatile double sum = 0;
+  uint32_t startTime = vex::timer::system();
+  bool isOpen;
+	 
+  while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
     // did this late at night but this while is important 
-    // fabs = absolute value
-    error = target - leftmiddle.position(rev) * Diameter * pi; //the error gets smaller when u reach ur target
+    error = target - minRots() * Diameter * pi; //the error gets smaller when u reach ur target
     sum = sum * decay + error;
-    speed = Kp * error + Ki * decay + Kd * (error - olderror); // big error go fast slow error go slow 
+    speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
+    speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
     drive(speed, speed, 10);
     olderror = error;
+    isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
+    if (endClaw && isOpen && (/*DistClaw.objectDistance(inches) < 2 ||*/ fabs(error) <= clawDist)) { // close claw b4 it goes backwards.
+	    if (target > 0) Claw(!CLAW_OPEN);
+      else mogoTilt(!TILT_OPEN);
+    }
+    if (raiseMogo && !isOpen && (error + 6 < clawDist)) {
+      Lift.spin(forward,100,percent);
+    }
   }
-  brakeDrive();
+	brakeDrive();
+  if (endClaw && isOpen) {
+    if (target > 0) Claw(!CLAW_OPEN);
+    else mogoTilt(!TILT_OPEN);
+  }
 }
 
 //if gyro needs calibrating add a 10ms wait or something, gyro cal takes about 1.5 sec
@@ -425,24 +436,25 @@ void auton() {
   MID-PICASSO-SIDE
   START IN THE CORNER FACING MID. CENTER OF ROBOT SHOULD BE ON CENTER OF TILE
   */
-  double mogoStopDist = 6; // STOP THIS MANY UNITS BEFORE A MOGO. FEEL FREE TO CHANGE
   // MID
-  inchDrive(84.85 - mogoStopDist); // GO TO MID and LOWER MOGO LIFT.
-  Claw(!CLAW_OPEN); // CLAW IT
-  liftDeg(10, 0); // RAISE LIFT BY 10° TO REDUCE FRICTION
-  // ALLIANCE
-  inchDrive(-50.91 + mogoStopDist-3); // ALIGN WITH ALLIANCE GOAL ON Y-AXIS.
-  gyroturn(-45, facing); // FACE ALLIANCE GOAL
-  inchDrive(-18); // GET IT IN MOGO LIFT
-  mogoTilt(!TILT_OPEN);
-  rings(true);
+  unitDrive(2.5 * DIAG - 6, true, 3); // get it.
+  liftDeg(20, 0); // raise lift to reduce friction LIFT BY 10° TO REDUCE FRICTION
+  unitDrive(-1.5 * DIAG); // go back
   // SIDE
-  inchDrive(16.5); // GO BACK TO WHEREVER IT WAS B4 THE LINE THAT SAYS "GET IT IN MOGO LIFT" FROM SECTION "PICASSO"
-  Claw(CLAW_OPEN);
-  gyroturn(90, facing); // FACE MOGO LIFT TO SIDE GOAL
-  inchDrive(40); // CLAW IT
-  Claw(!CLAW_OPEN);
-  inchDrive(50); // RETURN TO HOME ZONE
+  liftTo(-10);
+  Claw(false);
+  gyroturn(-45);
+  unitDrive(1.4,true,3);
+  liftDeg(20);
+  unitDrive(-1.4); // go home
+  // ALLIANCE
+  gyroturn(90);
+  unitDrive(-0.5,true,2); // get it
+  // rings
+  gyroturn(-90);
+  rings(true);
+  unitDrive(1.5,false,0,INF,67); // get the rings
+  unitDrive(-1.5); // go home
 }
 
 //driver controls,dont change unless your jaehoon or sean

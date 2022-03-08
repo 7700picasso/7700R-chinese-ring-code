@@ -50,7 +50,7 @@ competition Competition;
 char* str = "";
 const long double pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825; // much more accurate than 3.14. accurate enough to go across the universe and be within an atom of error
 
-#define Diameter 3.25
+#define Diameter 3.25 * 3 / 5
 #define UNITSIZE 23.75 // tile size
 #define MOGO_DIST 5
 #define NOTE str = 
@@ -222,7 +222,7 @@ void liftWait(double target, uint32_t maxTime = INF) {
 //example lift(-100,1200);  so lift 100% for 1200 msc
 // 100 is up and -100 is down,or other way around,you can figure that out
 
-void rings(bool on, int speed = 83) {
+void rings(bool on, int speed = 87) {
   if (on) {
     Rings.spin(forward, on * speed, percent);
   }
