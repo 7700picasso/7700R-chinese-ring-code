@@ -448,14 +448,14 @@ void auton() {
   liftTo(-10,0); // lower lift
   Claw(CLAW_OPEN); // drop the goal
   gyroturn(45); // face side
-  unitDrive(1.4,true,4);
-  liftDeg(20,0);
+  unitDrive(1.4,true,4); // get side
+  liftDeg(20,0); // raise lift for rings
   unitDrive(-1.4); // go home
   // ALLIANCE
-  gyroturn(-90);
+  gyroturn(-90); // face it with mogo tilt
   unitDrive(-0.5,true,2); // get it
   // rings
-  gyroturn(-90);
+  gyroturn(-90); // face the line of rings
   rings(true);
   unitDrive(1.5,false,0,INF,67); // get the rings
   unitDrive(-1.8); // go home
