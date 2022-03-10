@@ -447,24 +447,23 @@ void auton() {
 
   "AUTO NUMBER 1";
   "SIDE-PICASSO-MID";
+	Lift.spin(forward, -100,pct); // lower lift
   // SIDE
-  unitDrive(2.3,true,4); // grab the mogo. Take some steroids
-  liftDeg(20,0);
-  unitDrive(-0.9); // drive backwards to escape any enemy claws
-  // ALLIANCE + RINGS
-  gyroturn(-45,facing);
-  unitDrive(-1.414 + 1 / 3,true,3,INF,50); // get it. slow down
-  rings(true);
-  unitDrive(1.414 / 2 - 1/3); // align with rings
-  gyroturn(-45,facing); // face the wall
-  unitDrive(2,false,false,INF,67); // get the rings
-  rings(false); // turn off rings
+  unitDrive(2.3,true,4); // grab the mogo.
+  unitDrive(-1); // bring it back. Should align with the alliance goal on the horizontal axis
+	claw
   // MID
-  Claw(CLAW_OPEN); // DROP THE YELLOW GOAL
-  liftDeg(-30,0); // lower lift
-  gyroturn(90,facing); // face mid
-  unitDrive(0.667,true,4); // get it
-  unitDrive(-1); // go home
+	gyroturn(-45,facing); // face mid. Do not change this. Change the line above
+	unitDrive(1.5*DIAG-4,true,4); // get it
+	liftDeg(20,0); // raise lift for rings
+	unitDrive(4-1.5*DIAG); // return to home zone. This value should be -1 * the previous first value fed to unitDrive (which currently says 1.5*DIAG - 4)
+  // ALLIANCE + RINGS
+  gyroturn(-45,facing); // face the alliance goal
+	uniDrive(-0.5,true,1,2000); // get it
+	gyroturn(90,facing); // face the line of rings
+  rings(true); // turn on intake
+  unitDrive(1.5,false,0,INF,67); // get the rings
+	unitDrive(-2); // return home
 }
 
 //driver controls,dont change unless your jaehoon or sean
