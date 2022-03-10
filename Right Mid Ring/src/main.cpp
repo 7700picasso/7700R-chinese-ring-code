@@ -35,7 +35,7 @@
 // ClashRoyal2          digital_out   E               
 // Rings                motor         9               
 // claw1                digital_out   B               
-// claw2                digital_out   C               
+// tall                 digital_out   C               
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
@@ -59,6 +59,7 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define TILT_OPEN false
 #define LIFT_UP 85
 #define DIAG sqrt(2)
+#define High_Open false
 
 // for red comments
 
@@ -68,11 +69,11 @@ void pre_auton(void) {
   GPS.calibrate();
   //picasso.set(false);
 	claw1.set(CLAW_OPEN);
-  claw2.set(CLAW_OPEN);
   MogoTilt.set(TILT_OPEN);
   ClashRoyal1.set(false);
   ClashRoyal2.set(false);
   wait(2000, msec);
+  tall.set(High_Open);
 
   // All activities that occur before the competition starts
   // gets pistons down before match
@@ -234,7 +235,6 @@ void rings(bool on, int speed = 87) {
 void Claw(bool open) {
   //wait(50 * open, msec);
   claw1.set(open);
-  claw2.set(open);
   //wait(50 * !open, msec);
 }
 
@@ -244,8 +244,12 @@ void Claw(bool open) {
 //claw.set(true);    open
 //claw.set(false);   close
 
-void mogoTilt(bool state) {
-  MogoTilt.set(state);
+void mogoTilt(bool open) {
+  MogoTilt.set(open);
+}
+
+void tallmogo(bool state) {
+  tall.set(state);
 }
 
 void clashRoyal(bool state) {
@@ -515,16 +519,23 @@ void driver() {
   
 
 		if (Controller1.ButtonX.pressing()) { // claw close
-      Claw(!CLAW_OPEN);
-		}
-		else if (Controller1.ButtonA.pressing()) { //claw open
       Claw(CLAW_OPEN);
 		}
+		else if (Controller1.ButtonA.pressing()) { //claw open
+      Claw(!CLAW_OPEN);
+		}
 
-		if (Controller1.ButtonUp.pressing()) { // picasso
+    if (Controller1.ButtonUp.pressing()) { 
+      tallmogo(!High_Open);
+		}
+		else if (Controller1.ButtonRight.pressing()) { 
+      tallmogo(High_Open);
+		}
+  
+		if (Controller1.ButtonDown.pressing()) { // picasso
 			clashRoyal(true);
 		}
-		else if (Controller1.ButtonRight.pressing()) { // un-picasso
+		else if (Controller1.ButtonLeft.pressing()) { // un-picasso
 			clashRoyal(false);
 		}
 		wait(20, msec); // dont waste air 

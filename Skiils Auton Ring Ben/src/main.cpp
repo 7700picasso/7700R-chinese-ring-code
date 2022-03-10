@@ -35,7 +35,7 @@
 // ClashRoyal2          digital_out   E               
 // Rings                motor         9               
 // claw1                digital_out   B               
-// claw2                digital_out   C               
+// tall                 digital_out   C               
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
@@ -53,11 +53,14 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 
 #define Diameter 3.25 * 3 / 5
 #define UNITSIZE 23.75 // tile size
+#define MOGO_DIST 5
 #define NOTE str = 
 #define INF 4294967295
-#define CLAW_OPEN true
+#define CLAW_OPEN false
 #define TILT_OPEN false
-#define LIFT_UP 66
+#define LIFT_UP 85
+#define DIAG sqrt(2)
+#define High_Open false
 #define SPEED_CAP 100
 
 // for red comments
@@ -66,12 +69,16 @@ void pre_auton(void) {
   vexcodeInit();
   Gyro.calibrate();
   GPS.calibrate();
+  //picasso.set(false);
 	claw1.set(CLAW_OPEN);
-  claw2.set(CLAW_OPEN);
   MogoTilt.set(TILT_OPEN);
   ClashRoyal1.set(false);
   ClashRoyal2.set(false);
   wait(2000, msec);
+  tall.set(High_Open);
+
+
+
 
   // All activities that occur before the competition starts
   // gets pistons down before match
@@ -244,6 +251,9 @@ void Claw(bool open) {
 
 void mogoTilt(bool state) {
   MogoTilt.set(state);
+}
+void tallmogo(bool state) {
+  tall.set(state);
 }
 
 void clashRoyal(bool state) {
@@ -660,7 +670,7 @@ void driver() {
 		int rstick=Controller1.Axis2.position();
 		int lstick=Controller1.Axis3.position();
 		drive(lstick, rstick,10);
-		int8_t tmp, ringSpeed = 100;
+		int8_t tmp, ringSpeed = 87;
     // mogoTilt controls
     if (!Controller1.ButtonR2.pressing()) {
       r2Down = false;
@@ -695,22 +705,25 @@ void driver() {
   
 
 		if (Controller1.ButtonX.pressing()) { // claw close
-			Claw(!CLAW_OPEN);
+      Claw(CLAW_OPEN);
 		}
 		else if (Controller1.ButtonA.pressing()) { //claw open
-			Claw(CLAW_OPEN);
+      Claw(!CLAW_OPEN);
 		}
 
-		if (Controller1.ButtonUp.pressing()) { // picasso
+    if (Controller1.ButtonUp.pressing()) { 
+      tallmogo(!High_Open);
+		}
+		else if (Controller1.ButtonRight.pressing()) { 
+      tallmogo(High_Open);
+		}
+  
+		if (Controller1.ButtonDown.pressing()) { // picasso
 			clashRoyal(true);
 		}
-		else if (Controller1.ButtonRight.pressing()) { // un-picasso
+		else if (Controller1.ButtonLeft.pressing()) { // un-picasso
 			clashRoyal(false);
 		}
-    // find the corner
-    if (Controller1.ButtonDown.pressing()) {
-      driveTo(-2,-1);
-    }
 		wait(20, msec); // dont waste air 
   }
 }

@@ -26,7 +26,7 @@ digital_out ClashRoyal1 = digital_out(Brain.ThreeWirePort.D);
 digital_out ClashRoyal2 = digital_out(Brain.ThreeWirePort.E);
 motor Rings = motor(PORT9, ratio6_1, false);
 digital_out claw1 = digital_out(Brain.ThreeWirePort.B);
-digital_out claw2 = digital_out(Brain.ThreeWirePort.C);
+digital_out tall = digital_out(Brain.ThreeWirePort.C);
 
 // VEXcode generated functions
 // define variable for remote controller enable/disable
