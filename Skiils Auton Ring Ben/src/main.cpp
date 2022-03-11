@@ -648,7 +648,7 @@ void auton() {
 	turnTo(0); // face forward
 	unitDrive(3,false,0,3000);
 	// ALIGN FOR PARKING
-	driveTo(2, 2.7, false, false, 0, 0, 1500); // use wall to align with the platform. also fill the goal with rings
+	driveTo(2.3, 2.7, false, false, 0, 0, 2000); // use wall to align with the platform. also fill the goal with rings
 	unitDrive(-3.5 / UNITSIZE,false,0,INF); // back up from wall
 	turnTo(-90); // point straight
 	/*
@@ -658,7 +658,7 @@ void auton() {
 	liftTime(0, 0); // allow lift to get shoved a bit up.
 	*/
   // PARK
-  unitDrive(49 / UNITSIZE + 0.4); // hopefully goes to the middle
+  unitDrive(49 / UNITSIZE + 0.7); // hopefully goes to the middle
   if (fabs(Gyro.pitch(degrees)) < 21) { // don't pause for no reason
     wait(750,msec); // wait before continuing
   }
