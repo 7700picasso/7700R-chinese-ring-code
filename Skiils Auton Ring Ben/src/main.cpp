@@ -261,7 +261,7 @@ void clashRoyal(bool state) {
   ClashRoyal2.set(state);
 }
 
-void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double accuracy = 0.75) {
+void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double accuracy = 0.25) {
 	double Kp = 10; // was previously 50/3
 	double Ki = 1; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
