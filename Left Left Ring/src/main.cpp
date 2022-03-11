@@ -554,6 +554,53 @@ void driver() {
 		}
     rings(ringsOn || ringSpeed < 0,ringSpeed);
 		// lift control
+//driver controls,dont change unless your jaehoon or sean
+void driver() {
+  // User control code here, inside the loop
+  //2 joy sticks
+  //rstick is axis 2 and lstick is axis 3,why its 2,3 and not 1,2 idk ask vex
+  coastDrive(); // set drive motors to coast
+
+  while (Gyro.isCalibrating() || GPS.isCalibrating()) { // dont start until gyro is calibrated
+    wait(10, msec);
+  }
+  Gyro.setRotation(GPS.rotation(degrees) - 90, degrees);
+  //Controller1.Screen.print("%0.3f", Gyro.rotation(deg));
+  bool r2Down = false;
+  bool r1Down = false;
+
+  bool ringsOn = false;
+
+  while (true) {
+    // drive control
+		int rstick=Controller1.Axis2.position();
+		int lstick=Controller1.Axis3.position();
+		drive(lstick, rstick,10);
+		int8_t tmp, ringSpeed = 87;
+    // mogoTilt controls
+    if (!Controller1.ButtonR2.pressing()) {
+      r2Down = false;
+    }
+    else if (!r2Down) {
+      mogoTilt(!MogoTilt.value());
+      r2Down = true;
+    }
+    // ring controls
+    if (!Controller1.ButtonR1.pressing()) {
+      r1Down = false;
+    }
+    else if (!r1Down) {
+      ringsOn = !ringsOn;
+      r1Down = true;
+    }
+		if (Controller1.ButtonY.pressing()) { // turn off rings
+			ringsOn = false;
+		}
+		else if (Controller1.ButtonB.pressing()) { // reverse rings
+      ringSpeed = -100;
+		}
+    rings(ringsOn || ringSpeed < 0,ringSpeed);
+		// lift control
 		tmp = 100 * (Controller1.ButtonL1.pressing() - Controller1.ButtonL2.pressing());
 		if (tmp == 0) {
 			Lift.stop(hold);
@@ -569,20 +616,17 @@ void driver() {
 		else if (Controller1.ButtonA.pressing()) { //claw open
       Claw(!CLAW_OPEN);
 		}
-
+    // tall controls
     if (Controller1.ButtonUp.pressing()) { 
       tallmogo(!High_Open);
 		}
 		else if (Controller1.ButtonRight.pressing()) { 
       tallmogo(High_Open);
 		}
-  
-		if (Controller1.ButtonDown.pressing()) { // picasso
-			clashRoyal(true);
-		}
-		else if (Controller1.ButtonLeft.pressing()) { // un-picasso
-			clashRoyal(false);
-		}
+    // position identification
+		if (Controller1.ButtonDown.pressing()) {
+      driveTo(-2,-1);
+    }
 		wait(20, msec); // dont waste air 
   }
 }
