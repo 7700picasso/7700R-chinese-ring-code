@@ -68,7 +68,7 @@ void pre_auton(void) {
   Gyro.calibrate();
   GPS.calibrate();
   //picasso.set(false);
-	claw1.set(CLAW_OPEN);
+	claw1.set(!CLAW_OPEN);
   MogoTilt.set(TILT_OPEN);
   ClashRoyal1.set(false);
   ClashRoyal2.set(false);
@@ -436,15 +436,19 @@ void auton() {
 	
   double facing = 0;
   /*
-  AUTO NUMBER 2
-  MID-PICASSO-SIDE
-  START IN THE CORNER FACING MID. CENTER OF ROBOT SHOULD BE ON CENTER OF TILE
-  */
-  // MID
-  unitDrive(2.5 * DIAG - 6, true, 3); // get it.
-  liftDeg(15, 0); // raise lift to reduce friction LIFT BY 10° TO REDUCE FRICTION
-  unitDrive(-1.5 * DIAG); // go back
+  void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = 100, bool raiseMogo = false, double accuracy = 0.25) {
+*/
+    Claw(!CLAW_OPEN);
+
+  unitDrive(3.15,true,4); // get side
+    Claw(CLAW_OPEN);
+    wait(500, msec);
+  liftDeg(15, 0); 
+  unitDrive(-3.4);
+
+  // raise lift to reduce friction LIFT BY 10° TO REDUCE FRICTION
   // SIDE
+  /*
   liftTo(-10,0); // lower lift
   Claw(CLAW_OPEN); // drop the goal
   gyroturn(45); // face side
@@ -459,6 +463,7 @@ void auton() {
   rings(true);
   unitDrive(1.5,false,0,INF,67); // get the rings
   unitDrive(-1.8); // go home
+  */
 }
 
 //driver controls,dont change unless your jaehoon or sean
