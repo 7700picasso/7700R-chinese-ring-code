@@ -467,6 +467,7 @@ void auton() {
 }
 
 //driver controls,dont change unless your jaehoon or sean
+//driver controls,dont change unless your jaehoon or sean
 void driver() {
   // User control code here, inside the loop
   //2 joy sticks
@@ -476,7 +477,6 @@ void driver() {
   while (Gyro.isCalibrating() || GPS.isCalibrating()) { // dont start until gyro is calibrated
     wait(10, msec);
   }
-
   Gyro.setRotation(GPS.rotation(degrees) - 90, degrees);
   //Controller1.Screen.print("%0.3f", Gyro.rotation(deg));
   bool r2Down = false;
@@ -529,20 +529,17 @@ void driver() {
 		else if (Controller1.ButtonA.pressing()) { //claw open
       Claw(!CLAW_OPEN);
 		}
-
+    // tall controls
     if (Controller1.ButtonUp.pressing()) { 
       tallmogo(!High_Open);
 		}
 		else if (Controller1.ButtonRight.pressing()) { 
       tallmogo(High_Open);
 		}
-  
-		if (Controller1.ButtonDown.pressing()) { // picasso
-			clashRoyal(true);
-		}
-		else if (Controller1.ButtonLeft.pressing()) { // un-picasso
-			clashRoyal(false);
-		}
+    // position identification
+		if (Controller1.ButtonDown.pressing()) {
+      driveTo(-2,-1);
+    }
 		wait(20, msec); // dont waste air 
   }
 }
