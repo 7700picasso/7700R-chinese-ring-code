@@ -430,40 +430,36 @@ void auton() {
 
 	//runningAuto = true;
 
-	while (Gyro.isCalibrating() || GPS.isCalibrating()) { // dont start until gyro and GPS are calibrated
+	while (Gyro.isCalibrating()) { // dont start until gyro and GPS are calibrated
 		wait(10, msec);
 	}
-	
-  double facing = 0;
+  Gyro.setRotation(-45, degrees);
   /*
   void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = 100, bool raiseMogo = false, double accuracy = 0.25) {
-*/
-    Claw(!CLAW_OPEN);
-
-  unitDrive(3.15,true,4); // get side
-    Claw(CLAW_OPEN);
-    wait(500, msec);
+  */
+  Lift.spin(forward,-100,pct);
+  Claw(CLAW_OPEN);
+  unitDrive(-2.5*DIAG,true,4); // get side
+  Lift.setPosition(0, degrees);
+  //wait(500, msec);
   liftDeg(15, 0); 
-  unitDrive(-3.4);
-
+  unitDrive(-1.5*DIAG);
   // raise lift to reduce friction LIFT BY 10° TO REDUCE FRICTION
   // SIDE
-  /*
   liftTo(-10,0); // lower lift
   Claw(CLAW_OPEN); // drop the goal
-  gyroturn(45); // face side
+  turnTo(0);
   unitDrive(1.4,true,4); // get side
   liftDeg(20,0); // raise lift for rings
   unitDrive(-1.4); // go home
   // ALLIANCE
-  gyroturn(-90); // face it with mogo tilt
+  turnTo(-90); // face it with mogo tilt
   unitDrive(-0.5,true,2); // get it
   // rings
-  gyroturn(-90); // face the line of rings
+  turnTo(0); // face the line of rings
   rings(true);
   unitDrive(1.5,false,0,INF,67); // get the rings
   unitDrive(-1.8); // go home
-  */
 }
 
 //driver controls,dont change unless your jaehoon or sean
@@ -524,10 +520,10 @@ void driver() {
   
 
 		if (Controller1.ButtonX.pressing()) { // claw close
-      Claw(CLAW_OPEN);
+      Claw(!CLAW_OPEN);
 		}
 		else if (Controller1.ButtonA.pressing()) { //claw open
-      Claw(!CLAW_OPEN);
+      Claw(CLAW_OPEN);
 		}
     // tall controls
     if (Controller1.ButtonUp.pressing()) { 
@@ -536,10 +532,6 @@ void driver() {
 		else if (Controller1.ButtonRight.pressing()) { 
       tallmogo(High_Open);
 		}
-    // position identification
-		if (Controller1.ButtonDown.pressing()) {
-      driveTo(-2,-1);
-    }
 		wait(20, msec); // dont waste air 
   }
 }

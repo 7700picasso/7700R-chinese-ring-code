@@ -450,22 +450,24 @@ void auton() {
 	Lift.spin(forward, -100,pct); // lower lift
   // SIDE
   unitDrive(2.3,true,4); // grab the mogo.
-  unitDrive(-1); // bring it back. Should align with the alliance goal on the horizontal axis
-	claw
-  // MID
-	gyroturn(-45,facing); // face mid. Do not change this. Change the line above
-	unitDrive(1.5*DIAG-4,true,4); // get it
+  unitDrive(-1.9); // bring it back. Should align with the alliance goal on the horizontal axis
+	Claw(CLAW_OPEN);
+  /*// MID
+	gyroturn(-37,facing); // face mid. Do not change this. Change the line above
+	unitDrive(1.5*DIAG-4/UNITSIZE,true,4); // get it
 	liftDeg(20,0); // raise lift for rings
-	unitDrive(4-1.5*DIAG); // return to home zone. This value should be -1 * the previous first value fed to unitDrive (which currently says 1.5*DIAG - 4)
+	unitDrive(4/UNITSIZE-1.5*DIAG); // return to home zone. This value should be -1 * the previous first value fed to unitDrive (which currently says 1.5*DIAG - 4)
+  */
   // ALLIANCE + RINGS
-  gyroturn(-45,facing); // face the alliance goal
-	uniDrive(-0.5,true,1,2000); // get it
-	gyroturn(90,facing); // face the line of rings
+  turnTo(-90); // face the alliance goal
+	unitDrive(-1,true,1,2000); // get it
+  turnTo(0);
   rings(true); // turn on intake
   unitDrive(1.5,false,0,INF,67); // get the rings
 	unitDrive(-2); // return home
 }
 
+//driver controls,dont change unless your jaehoon or sean
 //driver controls,dont change unless your jaehoon or sean
 void driver() {
   // User control code here, inside the loop
@@ -476,7 +478,6 @@ void driver() {
   while (Gyro.isCalibrating() || GPS.isCalibrating()) { // dont start until gyro is calibrated
     wait(10, msec);
   }
-
   Gyro.setRotation(GPS.rotation(degrees) - 90, degrees);
   //Controller1.Screen.print("%0.3f", Gyro.rotation(deg));
   bool r2Down = false;
@@ -524,24 +525,17 @@ void driver() {
   
 
 		if (Controller1.ButtonX.pressing()) { // claw close
-      Claw(CLAW_OPEN);
-		}
-		else if (Controller1.ButtonA.pressing()) { //claw open
       Claw(!CLAW_OPEN);
 		}
-
+		else if (Controller1.ButtonA.pressing()) { //claw open
+      Claw(CLAW_OPEN);
+		}
+    // tall controls
     if (Controller1.ButtonUp.pressing()) { 
-      tallmogo(!High_Open);
+      tall.set(!High_Open);
 		}
 		else if (Controller1.ButtonRight.pressing()) { 
-      tallmogo(High_Open);
-		}
-  
-		if (Controller1.ButtonDown.pressing()) { // picasso
-			clashRoyal(true);
-		}
-		else if (Controller1.ButtonLeft.pressing()) { // un-picasso
-			clashRoyal(false);
+      tall.set(High_Open);
 		}
 		wait(20, msec); // dont waste air 
   }

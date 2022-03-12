@@ -40,7 +40,8 @@
 
 #include "vex.h"
 #include <math.h>
-#include <cstdlib>
+#include <array>
+//#include <algorithm>
 
 using namespace vex;
 
@@ -58,9 +59,9 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define INF 4294967295
 #define CLAW_OPEN false
 #define TILT_OPEN false
-#define LIFT_UP 85
+#define LIFT_UP 66
 #define DIAG sqrt(2)
-#define High_Open false
+#define High_Open true
 #define SPEED_CAP 100
 
 // for red comments
@@ -143,7 +144,23 @@ double degToTarget(double x1, double y1, double x2, double y2, bool Reverse = fa
 	*/
 }
 
-
+std::array<double,8> getTemp() {
+  std::array<double,8> temps = {
+    leftDrive1.temperature(temperatureUnits::fahrenheit),
+    leftDrive2.temperature(temperatureUnits::fahrenheit),
+    leftmiddle.temperature(temperatureUnits::fahrenheit),
+    rightDrive1.temperature(temperatureUnits::fahrenheit),
+    rightDrive2.temperature(temperatureUnits::fahrenheit),
+    rightmiddle.temperature(temperatureUnits::fahrenheit),
+    0, 0
+  };
+  for (uint8_t i = 0; i < 6; i++) {
+    temps[6] += temps[i];
+    temps[8] = std::max(temps[8],temps[i]);
+  }
+  temps[6]/=7;
+  return temps;
+}
 
 
 void brakeDrive() {
@@ -262,7 +279,7 @@ void clashRoyal(bool state) {
 }
 
 void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double accuracy = 0.25) {
-	double Kp = 10; // was previously 50/3
+	double Kp = 6; // was previously 50/3
 	double Ki = 1; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
@@ -387,9 +404,9 @@ void balance() { // WIP
 }
 
 void gyroturn(double target, double maxSpeed = SPEED_CAP, uint32_t maxTime = INF, double accuracy = 1) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
-  double Kp = 0.9;
+  double Kp = 1;
   double Ki = 0.05;
-  double Kd = 1.5;
+  double Kd = 5;
   double decay = 0.5; // integral decay
 	
   volatile double sum = 0;
@@ -442,7 +459,7 @@ void driveTo(double x2, double y2, bool Reverse = false, bool endClaw = false, d
   double x1 = -GPS.yPosition(inches), y1 = GPS.xPosition(inches);
   pointAt(x2, y2, Reverse, maxSpeed, maxTime, x1, y1);
   x2 *= UNITSIZE, y2 *= UNITSIZE;
-  x1 = -GPS.yPosition(inches), y1 = GPS.xPosition(inches);
+  //x1 = -GPS.yPosition(inches), y1 = GPS.xPosition(inches);
 
   // go to target
   // volatile double distSpeed = 100;
@@ -541,7 +558,6 @@ void auton() {
 
 	Claw(CLAW_OPEN); // open claw
   mogoTilt(TILT_OPEN);
-  clashRoyal(false);
 
 	//runningAuto = true;
 
@@ -565,25 +581,99 @@ void auton() {
 	  9)  MOGO LIFT RIGHT RED + BRING IT TO RED SIDE 
   	10) PARK ON BLUE SIDE
 	*/
-
   // prep stuff
  	brakeDrive(); // set motors to brake
 	Lift.spin(forward,-100,pct);
-	// TILT LEFT BLUE
+	// TILT LEFT  
   unitDrive(-0.5,true,3,1000); // get it
 	Lift.setPosition(0, degrees);
-  // CLAW LEFT YELLOW + RINGS
-  driveTo(-1.63,0,false,true,0,3); // get it
   rings(true);
+  // CLAW LEFT YELLOW
+  driveTo(-1.63,0,false,true,0,6); // get it
+  wait(200,msec);
   liftTo(LIFT_UP,0); // raise lift
-  driveTo(-1.667,-1); // align with rings
+  // RINGS
+  unitDrive(-1.4);
 	turnTo(90); // face rings
-	unitDrive(1.8,false,false,0,0,INF,66); // fill LEFT BLUE with rings
+	unitDrive(2,false,0,INF,50); // fill LEFT BLUE with rings
+	unitDrive(-1/3); // back up
+  // PLATFORM LEFT YELLOW
+  turnTo(180);
+  unitDrive(0.875,false,0,1000);
+  Claw(CLAW_OPEN); // drop it
+  unitDrive(-0.25); // back up
+  // DROP LEFT BLUE 
+  turnTo(90); // aim to drop it
+  liftTo(-10,0); // lower lift
+	unitDrive(-0.75); // back up to reposition it
+  mogoTilt(TILT_OPEN); // drop it
+  unitDrive(1.75); // avoid bumping it
+  // CLAW RIGHT YELLOW
+	driveTo(1.63,0,false,true,3,3); // get it
+  liftTo(LIFT_UP,0); // position lift
+  // PLATFORM RIGHT YELLOW
+	turnTo(-150); // turn around and face the platform
+	unitDrive(2.5,false,0,2000); // go to platform
+	Claw(CLAW_OPEN); // drop it
+  unitDrive(-0.5); // back up
+  liftTo(-10,0); // lower lift
+  // CLAW MID
+	driveTo(0,0,false,true,0,6,INF,50);
+  //driveTo(0,0,false, true, -35.625 / sin(pi / 180 * Gyro.rotation(degrees)), 35.625 / sin(pi / 180 * Gyro.rotation(degrees)),INF, 50, true); // get it and align with next mogo and raise lift
+  liftTo(LIFT_UP,0); // raise lift
+  // PLATFORM MID
+	turnTo(180); // face platform
+	unitDrive(3,false,0,1750); // go to platform
+  wait(750,msec); // pause
+  Claw(CLAW_OPEN); // drop it
+	unitDrive(-0.25); // back up
+  liftTo(-10,0); // lower lift
+  // CLAW LEFT BLUE
+	turnTo(-90); // face it
+  liftWait(10); // ensure that the lift is low enough
+  unitDrive(1,true,4); // get it
+  liftTo(20,0); // raise lift
+  // TILT RIGHT BLUE + RINGS
+  turnTo(-90); // face it 
+  unitDrive(-3.25,true,1,3000); // get it
+  unitDrive(0.1667); // back up
+  liftTo(LIFT_UP,0);
+  rings(true); // turn on rings
+	turnTo(0); // face forward
+	unitDrive(4,false,0,3000,50);
+	// ALIGN FOR PARKING
+	driveTo(2.1, 2.7, false, false, 0, 0, 2000); // use wall to align with the platform. also fill the goal with rings
+	unitDrive(-2.5 / UNITSIZE,false,0,INF); // back up from wall
+	turnTo(-90); // point straight
+  // PARK
+  Lift.spin(forward,-10,percent);
+  Lift.setMaxTorque(1, torqueUnits::InLb); // lower tourque so that it can stopa
+  unitDrive(49 / UNITSIZE); // hopefully goes to the middle
+  if (fabs(Gyro.pitch(degrees)) < 21) { // don't pause for no reason
+    wait(750,msec); // wait before continuing
+  }
+  balance(); // just in case its not balanced.
+  /*// prep stuff
+ 	brakeDrive(); // set motors to brake
+	Lift.spin(forward,-100,pct);
+	// TILT LEFT  
+  unitDrive(-0.5,true,3,1000); // get it
+	Lift.setPosition(0, degrees);
+  rings(true);
+  // CLAW LEFT YELLOW
+  driveTo(-1.6,0,false,true,0,6); // get it
+  wait(200,msec);
+  liftTo(LIFT_UP,0); // raise lift
+  // RINGS
+  unitDrive(-1.1);
+  //driveTo(-1.667,-0.75); // align with rings
+	turnTo(90); // face rings
+	unitDrive(1.8,false,0,INF,50); // fill LEFT BLUE with rings
 	unitDrive(-0.133333); // back up
   // PLATFORM LEFT YELLOW
   turnTo(180);
-  unitDrive(1,false,0,1300);
-	rings(false); // disable rings
+  unitDrive(0.875,false,0,1000);
+	//rings(false); // disable rings
   Claw(CLAW_OPEN); // drop it
   unitDrive(-0.25,false,0,1000);//driveTo(0,-1.5,true); // back up
   // DROP LEFT BLUE 
@@ -591,32 +681,29 @@ void auton() {
   turnTo(90); // aim to drop it
 	unitDrive(-0.25); // back up to reposition it
   mogoTilt(TILT_OPEN); // drop it
-  unitDrive(0.25); // avoid bumping it
+  unitDrive(1.75); // avoid bumping it
   // CLAW RIGHT YELLOW
-  gyroturn(-150,100,INF,5); // face the general direction. does not need to pe a precise turn
-	driveTo(1.5,0,false,true,3,3); // get it
+  //gyroturn(-100,100,INF,5); // face the general direction. does not need to pe a precise turn
+	driveTo(1.63,0,false,true,3,3); // get it
   //driveTo(1.5,0.333,false, true, -24,24,4000,SPEED_CAP,true); // get it and align for next goal
   liftTo(LIFT_UP,0); // position lift
-	/*
   // TILT RIGHT RED
   driveTo(1.25, 2.5, true, true, 3, 3, 2000,67); // get it
   unitDrive(1.5,false,0,2500); // back up
-	*/
   // PLATFORM RIGHT YELLOW
-	gyroturn(170); // turn around and face the platform
-	unitDrive(2,false,0,2000); // go to platform
-  /*driveTo(1.25,-1); // approach
-  driveTo(0.6,-1.8, false, false, 0, 0, 1500,50); // go to platform*/
+	gyroturn(-135); // turn around and face the platform
+	unitDrive(2.5,false,0,2000); // go to platform
+  driveTo(1.25,-1); // approach
+  driveTo(0.6,-1.8, false, false, 0, 0, 1500,50); // go to platform
 	Claw(CLAW_OPEN); // drop it
-  unitDrive(-0.25); // back up
+  unitDrive(-0.5); // back up
   // DROP RIGHT RED
   liftTo(-10,0); // lower lift
   //mogoTilt(TILT_OPEN); // drop it.
   // CLAW MID
 	driveTo(0,0,false,true,0,6,INF,50);
   //driveTo(0,0,false, true, -35.625 / sin(pi / 180 * Gyro.rotation(degrees)), 35.625 / sin(pi / 180 * Gyro.rotation(degrees)),INF, 50, true); // get it and align with next mogo and raise lift
-  liftTo(20,0); // raise lift
-	/*
+  liftTo(LIFT_UP,0); // raise lift
   // TILT LEFT RED + RINGS
   driveTo(-2.5,1.5,true,true,3,3,2250); // get it
   driveTo(-2,1.5,false,false,0,0,1000); // align with rings
@@ -624,12 +711,11 @@ void auton() {
 	gyroturn(-90);
 	unitDrive(1.5); // ring line 1
   driveTo(0,0); // ring line 2
-	*/
   // PLATFORM MID
 	turnTo(180); // face platform
 	//gyroturn(90); // face platform
-	unitDrive(1.5,false,0,2000); // go to platform
-  wait(300,msec); // pause
+	unitDrive(3,false,0,1750); // go to platform
+  wait(300,msec);  // pause
   Claw(CLAW_OPEN); // drop it
   //rings(false); // turn off rings
 	unitDrive(-0.25); // back up
@@ -642,27 +728,28 @@ void auton() {
   unitDrive(0.5,true,4); // get it
   liftTo(LIFT_UP,0); // raise lift
   // TILT RIGHT BLUE + RINGS
-  unitDrive(-2.5,true,3,4000); // get it
-  driveTo(2,-1.5,false,false,0,0,1000); // align with rings
+  turnTo(-90); // face it 
+  unitDrive(-2.667,true,3,2500); // get it
+  unitDrive(0.1667); // back up
+  //driveTo(2,-1.5,true,true,0,1,1000); // align with rings
   rings(true); // turn on rings
 	turnTo(0); // face forward
-	unitDrive(3,false,0,3000);
+	unitDrive(3,false,0,3000,50);
 	// ALIGN FOR PARKING
-	driveTo(2.3, 2.7, false, false, 0, 0, 2000); // use wall to align with the platform. also fill the goal with rings
+	driveTo(2, 2.7, false, false, 0, 0, 2000); // use wall to align with the platform. also fill the goal with rings
 	unitDrive(-3.5 / UNITSIZE,false,0,INF); // back up from wall
 	turnTo(-90); // point straight
-	/*
 	unitDrive(0.4); // approach platform
   liftTo(-10, 0); // bring down the platform.
   liftWait(10, 2667); // wait for lift to lower. But not forever.
 	liftTime(0, 0); // allow lift to get shoved a bit up.
-	*/
   // PARK
-  unitDrive(49 / UNITSIZE + 0.7); // hopefully goes to the middle
+  unitDrive(49 / UNITSIZE + 0.4); // hopefully goes to the middle
   if (fabs(Gyro.pitch(degrees)) < 21) { // don't pause for no reason
     wait(750,msec); // wait before continuing
   }
   balance(); // just in case its not balanced.
+  */
 }
 
 //driver controls,dont change unless your jaehoon or sean
@@ -722,26 +809,25 @@ void driver() {
   
 
 		if (Controller1.ButtonX.pressing()) { // claw close
-      Claw(CLAW_OPEN);
-		}
-		else if (Controller1.ButtonA.pressing()) { //claw open
       Claw(!CLAW_OPEN);
 		}
-
+		else if (Controller1.ButtonA.pressing()) { //claw open
+      Claw(CLAW_OPEN);
+		}
+    // tall controls
     if (Controller1.ButtonUp.pressing()) { 
       tallmogo(!High_Open);
 		}
 		else if (Controller1.ButtonRight.pressing()) { 
       tallmogo(High_Open);
 		}
-  
-		if (Controller1.ButtonDown.pressing()) { // picasso
-			clashRoyal(true);
-		}
-		else if (Controller1.ButtonLeft.pressing()) { // un-picasso
-			clashRoyal(false);
-		}
-		wait(20, msec); // dont waste air 
+    // position identification
+		if (Controller1.ButtonDown.pressing()) {
+      driveTo(-2,-1);
+    }
+    wait(20,msec);
+    //Controller1.Screen.clearLine();
+    //Controller1.Screen.print("%0.3f,%0.3f",-GPS.yPosition(inches)/UNITSIZE,GPS.xPosition(inches)/UNITSIZE);
   }
 }
   
@@ -749,13 +835,16 @@ int main() {
   // Set up callbacks for autonomous and driver control periods.
   Competition.autonomous(auton);
   Competition.drivercontrol(driver);
-
   // Run the pre-autonomous function.
   pre_auton();
 
- 
   // Stops main from exiting in the infinite loop.
   while (true) {
-    wait(100, msec);
+    Controller1.Screen.clearLine(0);
+    Controller1.Screen.print("%0.1f °F ",getTemp()[6]);
+    if (getTemp()[7] > 50) {
+      Controller1.Screen.print("too hot");
+    }
+    wait(250, msec);
   }
 }
