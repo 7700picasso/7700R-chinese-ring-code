@@ -383,9 +383,9 @@ void balance() { // WIP
 }
 
 void gyroturn(double target, double &idealDir,double accuracy = 1) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
-  double Kp = 0.8; // was 2.0
-  double Ki = 0.0; // adds a bit less than 50% when there is 90° left.
-  double Kd = 1.5; // was 16.0
+  double Kp = 0.9; // was 2.0
+  double Ki = 0.05; // adds a bit less than 50% when there is 90° left.
+  double Kd = 5; // was 16.0
  
   double currentDir = Gyro.rotation(degrees);
   double speed = 100;
@@ -440,18 +440,18 @@ void auton() {
 
 	//runningAuto = true;
 
-	while (Gyro.isCalibrating() || GPS.isCalibrating()) { // dont start until gyro and GPS are calibrated
+	while (Gyro.isCalibrating()) { // dont start until gyro and GPS are calibrated
 		wait(10, msec);
-	}
-  double facing = 0;
+  }
 
   "AUTO NUMBER 1";
   "SIDE-PICASSO-MID";
 	Lift.spin(forward, -100,pct); // lower lift
   // SIDE
   unitDrive(2.3,true,4); // grab the mogo.
-  unitDrive(-1.9); // bring it back. Should align with the alliance goal on the horizontal axis
-	Claw(CLAW_OPEN);
+  liftDeg(20,0); // raise lift for rings
+  unitDrive(-1.5); // bring it back. Should align with the alliance goal on the horizontal axis
+	//Claw(CLAW_OPEN);
   /*// MID
 	gyroturn(-37,facing); // face mid. Do not change this. Change the line above
 	unitDrive(1.5*DIAG-4/UNITSIZE,true,4); // get it
@@ -461,6 +461,7 @@ void auton() {
   // ALLIANCE + RINGS
   turnTo(-90); // face the alliance goal
 	unitDrive(-1,true,1,2000); // get it
+  unitDrive(0.25); // back up
   turnTo(0);
   rings(true); // turn on intake
   unitDrive(1.5,false,0,INF,67); // get the rings

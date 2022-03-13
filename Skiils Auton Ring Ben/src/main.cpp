@@ -146,12 +146,12 @@ double degToTarget(double x1, double y1, double x2, double y2, bool Reverse = fa
 
 std::array<double,8> getTemp() {
   std::array<double,8> temps = {
-    leftDrive1.temperature(temperatureUnits::fahrenheit),
-    leftDrive2.temperature(temperatureUnits::fahrenheit),
-    leftmiddle.temperature(temperatureUnits::fahrenheit),
-    rightDrive1.temperature(temperatureUnits::fahrenheit),
-    rightDrive2.temperature(temperatureUnits::fahrenheit),
-    rightmiddle.temperature(temperatureUnits::fahrenheit),
+    leftDrive1.temperature(temperatureUnits::celsius),
+    leftDrive2.temperature(temperatureUnits::celsius),
+    leftmiddle.temperature(temperatureUnits::celsius),
+    rightDrive1.temperature(temperatureUnits::celsius),
+    rightDrive2.temperature(temperatureUnits::celsius),
+    rightmiddle.temperature(temperatureUnits::celsius),
     0, 0
   };
   for (uint8_t i = 0; i < 6; i++) {
@@ -593,13 +593,13 @@ void auton() {
   wait(200,msec);
   liftTo(LIFT_UP,0); // raise lift
   // RINGS
-  unitDrive(-1.4);
+  unitDrive(-1.3);
 	turnTo(90); // face rings
 	unitDrive(2,false,0,INF,50); // fill LEFT BLUE with rings
-	unitDrive(-1/3); // back up
+	unitDrive(-0.6667); // back up
   // PLATFORM LEFT YELLOW
   turnTo(180);
-  unitDrive(0.875,false,0,1000);
+  unitDrive(0,false,0,1000);
   Claw(CLAW_OPEN); // drop it
   unitDrive(-0.25); // back up
   // DROP LEFT BLUE 
@@ -609,7 +609,7 @@ void auton() {
   mogoTilt(TILT_OPEN); // drop it
   unitDrive(1.75); // avoid bumping it
   // CLAW RIGHT YELLOW
-	driveTo(1.63,0,false,true,3,3); // get it
+	driveTo(1.5,0,false,true,3,3); // get it
   liftTo(LIFT_UP,0); // position lift
   // PLATFORM RIGHT YELLOW
 	turnTo(-150); // turn around and face the platform
@@ -823,7 +823,18 @@ void driver() {
 		}
     // position identification
 		if (Controller1.ButtonDown.pressing()) {
-      driveTo(-2,-1);
+      pointAt(-3, -3);
+      driveTo(-1.63,0);
+      wait(1000,msec);
+      driveTo(2.1, 2.7);
+    }
+    if (Controller1.ButtonLeft.pressing())
+    {
+      Controller1.Screen.setCursor(0,0);
+      Controller1.Screen.print("%0.1f °C ",getTemp()[6]);
+    }
+    if (getTemp()[7] > 50) {
+      Controller1.Screen.print("too hot");
     }
     wait(20,msec);
     //Controller1.Screen.clearLine();
@@ -840,11 +851,6 @@ int main() {
 
   // Stops main from exiting in the infinite loop.
   while (true) {
-    Controller1.Screen.clearLine(0);
-    Controller1.Screen.print("%0.1f °F ",getTemp()[6]);
-    if (getTemp()[7] > 50) {
-      Controller1.Screen.print("too hot");
-    }
-    wait(250, msec);
+    wait(100, msec);
   }
 }

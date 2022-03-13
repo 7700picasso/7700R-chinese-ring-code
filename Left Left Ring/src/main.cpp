@@ -488,22 +488,29 @@ void auton() {
   "START AT THE HALFWAY LINE NEXT TO THE ALLIANCE GOAL, FACING IT WITH THE CLAW. SEE https://cdn.discordapp.com/attachments/875890646714576906/944007778526175282/Left_auto_SIDE-PICASSO.png FOR REFERENCE";
 	// SIDE
   unitDrive(2.5,true,3); // GO TO THE MOGO
+  liftDeg(15,0);
   unitDrive(-2);
   // ALLIANCE GOAL
-  gyroturn(-30, facing); // POINT MOGO LIFT AT THE ALLIANCE GOAL. change the 30.
-  unitDrive(-0.5,true,3,INF,50); // GET MOGO INTO MOGO LIFT.
+  gyroturn(-23, facing); // POINT MOGO LIFT AT THE ALLIANCE GOAL. change the 30.
+  unitDrive(-0.667,true,3,1500,50); // GET MOGO INTO MOGO LIFT.
   // RINGS
-  unitDrive(1.75); // align. this probably wont work
-  turnTo(90);
+  //unitDrive(1.75); // align. this probably wont work
+  //turnTo(90);
   rings(true);
-  inchDrive(2.5 * UNITSIZE);
+  unitDrive(1.5);
+  turnTo(87);
+  unitDrive(2,false,0,INF,50);
+  unitDrive(-1.5);
+  turnTo(0);
+  unitDrive(-1);
+  /*inchDrive(2.5 * UNITSIZE);
   Claw(CLAW_OPEN);
   // MID
   gyroturn(-90,facing);
   inchDrive(1 * UNITSIZE);
   Claw(!CLAW_OPEN);
   inchDrive(-1 * UNITSIZE);
-  wait(300,msec);
+  wait(300,msec);*/
 }
 
 
