@@ -452,12 +452,11 @@ void auton() {
   liftDeg(20,0); // raise lift for rings
   unitDrive(-1.5); // bring it back. Should align with the alliance goal on the horizontal axis
 	//Claw(CLAW_OPEN);
-  /*// MID
-	gyroturn(-37,facing); // face mid. Do not change this. Change the line above
+  // MID
+	turnTo(-37); // face mid. Do not change this. Change the line above
 	unitDrive(1.5*DIAG-4/UNITSIZE,true,4); // get it
 	liftDeg(20,0); // raise lift for rings
 	unitDrive(4/UNITSIZE-1.5*DIAG); // return to home zone. This value should be -1 * the previous first value fed to unitDrive (which currently says 1.5*DIAG - 4)
-  */
   // ALLIANCE + RINGS
   turnTo(-90); // face the alliance goal
 	unitDrive(-1,true,1,2000); // get it
