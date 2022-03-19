@@ -114,6 +114,20 @@ double minRots() {
   }
   return min;
 }
+double maxRots() {    
+  double rots[] = {
+    leftDrive1.position(rev), leftDrive2.position(rev), leftmiddle.position(rev),
+    rightDrive1.position(rev), rightDrive2.position(rev), rightmiddle.position(rev)
+  };
+  double max = rots[0];
+  
+  for (int i = 1; i < 6; i++) {
+    if (rots[i] > max) {
+      max = rots[i];
+    }
+  }
+  return max;
+}
 
 double mod(double a, double b) {
   return (a < 0) * b + a - b * (floor(a / b) + (a < 0));
@@ -278,7 +292,7 @@ void clashRoyal(bool state) {
   ClashRoyal2.set(state);
 }
 
-void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double accuracy = 0.25) {
+void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
 	double Kp = 6; // was previously 50/3
 	double Ki = 1; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
@@ -314,8 +328,55 @@ void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_
 	    if (target > 0) Claw(!CLAW_OPEN);
       else mogoTilt(!TILT_OPEN);
     }
-    if (raiseMogo && !isOpen && (error + 6 < clawDist)) {
-      Lift.spin(forward,100,percent);
+    if (raiseMogo && !isOpen && (error + 6 < clawDist) && Lift.position(degrees) < 10) {
+      liftTo(mogoHeight,0);
+    }
+  }
+	brakeDrive();
+  if (endClaw && isOpen) {
+    if (target > 0) Claw(!CLAW_OPEN);
+    else mogoTilt(!TILT_OPEN);
+  }
+}
+
+void unitArc(double target, double propLeft=1, double propRight=1, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
+	double Kp = 6; // was previously 50/3
+	double Ki = 1; // to increase speed if its taking too long.
+	double Kd = 20; // was previously 40/3
+	double decay = 0.5; // integral decay
+	
+	target *= UNITSIZE; // convert UNITS to inches
+	
+	volatile double speed;
+	volatile double error = target;
+	volatile double olderror = error;
+	 
+  leftDrive1.setPosition(0, rev);
+	leftDrive2.setPosition(0, rev);
+  leftmiddle.setPosition(0, rev);
+  rightDrive1.setPosition(0, rev);
+  rightDrive2.setPosition(0, rev);
+  rightmiddle.setPosition(0, rev);
+	 
+  volatile double sum = 0;
+  uint32_t startTime = vex::timer::system();
+  bool isOpen;
+	 
+  while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
+    // did this late at night but this while is important 
+    error = target - maxRots() * Diameter * pi; //the error gets smaller when u reach ur target
+    sum = sum * decay + error;
+    speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
+    speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
+    drive(speed * propLeft, speed * propRight, 10);
+    olderror = error;
+    isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
+    if (endClaw && isOpen && (/*DistClaw.objectDistance(inches) < 2 ||*/ fabs(error) <= clawDist)) { // close claw b4 it goes backwards.
+	    if (target > 0) Claw(!CLAW_OPEN);
+      else mogoTilt(!TILT_OPEN);
+    }
+    if (raiseMogo && !isOpen && (error + 6 < clawDist) && Lift.position(degrees) < 10) {
+      liftTo(mogoHeight,0);
     }
   }
 	brakeDrive();
@@ -404,7 +465,7 @@ void balance() { // WIP
 }
 
 void gyroturn(double target, double maxSpeed = SPEED_CAP, uint32_t maxTime = INF, double accuracy = 1) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
-  double Kp = 1;
+  double Kp = 0.9;
   double Ki = 0.05;
   double Kd = 5;
   double decay = 0.5; // integral decay
@@ -556,7 +617,7 @@ void auton() {
 	NOTE"  RRRR             RRRR      RRRRRRRRRRRRRR            RRRR           RRRRRRRRRRRRRR    ";
 	NOTE" RRRR               RRRR        RRRRRRRR               RRRR              RRRRRRRR       ";
 
-	Claw(CLAW_OPEN); // open claw
+	Claw(!CLAW_OPEN); // open claw
   mogoTilt(TILT_OPEN);
 
 	//runningAuto = true;
@@ -564,28 +625,79 @@ void auton() {
 	while (Gyro.isCalibrating() || GPS.isCalibrating()) { // dont start until gyro and GPS are calibrated
 		wait(10, msec);
 	}
-	GPS.setRotation(GPS.rotation(degrees) - 90, degrees);
-	Gyro.setRotation(GPS.rotation(degrees), degrees);
-
+	//GPS.setRotation(GPS.rotation(degrees) - 90+90, degrees);
+	//Gyro.setRotation(GPS.rotation(degrees), degrees);
+  Gyro.setRotation(90, degrees);
 	NOTE "AUTO PLAN:";
 	NOTE "START ON RED SIDE LEFT";
 	/*
-	  1)  PICASSO LEFT BLUE
+	  1)  TILT LEFT BLUE
 	  2)  CLAW LEFT YELLOW
-	  3)  MOGO LIFT LEFT RED 
-	  4)  PLATFORM LEFT YELLOW 
-	  5)  DROP LEFT RED ON RED SIDE
-	  6)  SHOVE TALL YELLOW TO BLUE WITH MOGO LIFT
-	  7)  CLAW + PLATFORM RIGHT YELLOW
-	  8)  CLAW RIGHT BLUE
-	  9)  MOGO LIFT RIGHT RED + BRING IT TO RED SIDE 
-  	10) PARK ON BLUE SIDE
+	  3)  PLATFORM LEFT YELLOW 
+	  4)  PLATFORM LEFT BLUE
+	  5)  CLAW RIGHT YELLOW
+    6)  TILT RIGHT BLUE
+	  7)  PLATFORM RIGHT YELLOW
+    8)  CLAW MID
+    9)  PLATFORM MID
+	  10) PLATFORM RIGHT BLUE
+    11) TILT LEFT RED
+    12) CLAW RIGHT RED
+    13) PARK ON RIGHT-RED SIDE
 	*/
-  // prep stuff
+  // TILT LEFT BLUE
  	brakeDrive(); // set motors to brake
-	Lift.spin(forward,-100,pct);
+  mogoTilt(!TILT_OPEN); // clamp the mogo
+  liftDeg(60,0); // raise lift a bit
+  rings(true); // intake on
+  unitDrive(0.75,false,0,1000,33); // get rings
+  unitDrive(-0.25); // back up to get space
+  // CLAW LEFT YELLOW
+  unitArc(1.175,1,0); // curve to face the goal
+  Lift.spin(forward,-100,percent); // lower lift
+  Claw(CLAW_OPEN); // open claw
+  unitDrive(2.1,true,5); // get it
+  Lift.setPosition(0, degrees); // set lift rotation
+  liftTo(75,0); // raise lift
+  // PLATFORM LEFT YELLOW
+  unitArc(2,1,0.4); // curve to face the goal
+  unitArc(2,0.175,1,false,0,3000); // curve to face the goal
+  //turnTo(0);
+  unitDrive(0.25,false,0,500); // go into platform
+  Lift.spin(forward,-100,percent);
+  wait(300,msec);
+  Claw(CLAW_OPEN); // drop it
+  // PLATFORM LEFT BLUE
+  // back up
+  liftDeg(10,0);
+  unitDrive(-0.75); // back up
+  liftTo(-10,0); // lower lift
+  mogoTilt(TILT_OPEN); // drop it
+  unitDrive(0.333); // leave clearance
+  // switch to claw
+  gyroturn(180); // turn around
+  //liftWait(10,2000);
+  unitDrive(0.667,true,3); // get it
+  // platform it
+  liftTo(70,0); // raise lift
+  gyroturn(-165); // turn around
+  unitDrive(1.4,false,0,750); // bring it to the platform
+  Claw(CLAW_OPEN); // drop it
+  // CLAW RIGHT YELLOW
+  unitDrive(-0.25); // back up
+  liftTo(-10,0); // lower lift
+  gyroturn(160); // face the mogo
+  unitArc(4,0.75,1,true,40,INF,100,true,15); // get it
+  // TILT RIGHT BLUE
+  NOTE "END POINT";
+  wait(10000,sec);
+  gyroturn(90);
+  unitDrive(-0.5,true,3); // get it
+  gyroturn(90); // face the line of rings
+  unitDrive(1.5); // rings
+	//Lift.spin(forward,-100,pct);
 	// TILT LEFT  
-  unitDrive(-0.5,true,3,1000); // get it
+  /*unitDrive(-0.5,true,3,1000); // get it
 	Lift.setPosition(0, degrees);
   rings(true);
   // CLAW LEFT YELLOW
@@ -653,7 +765,7 @@ void auton() {
     wait(750,msec); // wait before continuing
   }
   balance(); // just in case its not balanced.
-  /*// prep stuff
+  /* // prep stuff
  	brakeDrive(); // set motors to brake
 	Lift.spin(forward,-100,pct);
 	// TILT LEFT  
@@ -823,10 +935,10 @@ void driver() {
 		}
     // position identification
 		if (Controller1.ButtonDown.pressing()) {
-      pointAt(-3, -3);
+      auton();/*pointAt(-3, -3);
       driveTo(-1.63,0);
       wait(1000,msec);
-      driveTo(2.1, 2.7);
+      driveTo(2.1, 2.7);*/
     }
     if (Controller1.ButtonLeft.pressing())
     {
