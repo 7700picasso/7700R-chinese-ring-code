@@ -647,55 +647,80 @@ void auton() {
 	*/
   // TILT LEFT BLUE
  	brakeDrive(); // set motors to brake
+  unitDrive(-0.2,true,0);
   mogoTilt(!TILT_OPEN); // clamp the mogo
   liftDeg(60,0); // raise lift a bit
   rings(true); // intake on
   unitDrive(0.75,false,0,1000,33); // get rings
   unitDrive(-0.25); // back up to get space
-  // CLAW LEFT YELLOW
-  unitArc(1.175,1,0); // curve to face the goal
+  // CLASH LEFT YELLOW
+  unitArc(1.13,1,0); // curve to face the goal
   Lift.spin(forward,-100,percent); // lower lift
   Claw(CLAW_OPEN); // open claw
-  unitDrive(2.1,true,5); // get it
+  unitDrive(2.45); //USE CLASH //,true,5); // get it
   Lift.setPosition(0, degrees); // set lift rotation
+  liftTo(7.5,0);
+  // CLAW MID
+  turnTo(-90,100,1000);
+  unitDrive(1.025,0,0,INF,33);
+  liftTo(-10,0);
+  wait(500,msec);
+  unitDrive(0.35,true,3);
+  // PLATFORM MID
   liftTo(75,0); // raise lift
-  // PLATFORM LEFT YELLOW
-  unitArc(2,1,0.4); // curve to face the goal
-  unitArc(2,0.175,1,false,0,3000); // curve to face the goal
-  //turnTo(0);
-  unitDrive(0.25,false,0,500); // go into platform
-  Lift.spin(forward,-100,percent);
-  wait(300,msec);
+  turnTo(178,100,1000); // aim
+  unitArc(2,0.75,1,false,0,1500); // Go To platform
+  liftTime(-100, 300,true);
   Claw(CLAW_OPEN); // drop it
   // PLATFORM LEFT BLUE
   // back up
-  liftDeg(10,0);
+  wait(500,msec);
+  unitDrive(-0.2,300);
+  liftDeg(20,50);
   unitDrive(-0.75); // back up
   liftTo(-10,0); // lower lift
   mogoTilt(TILT_OPEN); // drop it
   unitDrive(0.333); // leave clearance
   // switch to claw
-  gyroturn(180); // turn around
+  gyroturn(-179,100,1000); // turn around
   //liftWait(10,2000);
   unitDrive(0.667,true,3); // get it
   // platform it
   liftTo(70,0); // raise lift
-  gyroturn(-165); // turn around
+  gyroturn(-170); // turn around
   unitDrive(1.4,false,0,750); // bring it to the platform
   Claw(CLAW_OPEN); // drop it
   // CLAW RIGHT YELLOW
-  unitDrive(-0.25); // back up
+  unitArc(-1.5,0.5,1); // back up
+  turnTo(0,100,1000);
+  unitDrive(2.5,true,36,INF,100,true,15);
+  // TILT RIGHT BLUE
+  turnTo(90,100,1300);
+  unitDrive(-0.5,true,3,INF,67);
+  // PLATFORM RIGHT YELLOW
+  turnTo(180,100,1500);
+  liftTo(70,0);
+  unitDrive(1.5);
+  unitArc(1,0.75,1);
+  unitArc(1,1,0.75);
+  Claw(CLAW_OPEN);
+  // PLATFORM RIGHT BLUE
+  unitArc(-3,0.667,1);
+  turnTo(180,100,1000);
+  unitDrive(1.5,false,0,1000);
+  Claw(CLAW_OPEN);
+  return;
   liftTo(-10,0); // lower lift
   gyroturn(160); // face the mogo
   unitArc(4,0.75,1,true,40,INF,100,true,15); // get it
   // TILT RIGHT BLUE
   NOTE "END POINT";
-  wait(10000,sec);
+  wait(1000,sec);
   gyroturn(90);
   unitDrive(-0.5,true,3); // get it
   gyroturn(90); // face the line of rings
   unitDrive(1.5); // rings
-	//Lift.spin(forward,-100,pct);
+  // Lift.spin(forward,-100,pct);
 	// TILT LEFT  
   /*unitDrive(-0.5,true,3,1000); // get it
 	Lift.setPosition(0, degrees);
