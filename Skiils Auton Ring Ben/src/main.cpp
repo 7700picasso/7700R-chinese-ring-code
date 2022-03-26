@@ -63,6 +63,9 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define DIAG sqrt(2)
 #define High_Open true
 #define SPEED_CAP 100
+#define WIDTH 15
+#define RAD * pi / 180
+#define DEG * 180 / pi
 
 // for red comments
 
@@ -100,33 +103,26 @@ void drive(int lspeed, int rspeed, int wt){
 //use to go forward,backwards,left right etc,turning if your stupid
 //use mmDrive to go forward and backwards,use gyro to turn
 
-double minRots() {    
+double wheelRevs(uint8_t idx) {    
   double rots[] = {
     leftDrive1.position(rev), leftDrive2.position(rev), leftmiddle.position(rev),
     rightDrive1.position(rev), rightDrive2.position(rev), rightmiddle.position(rev)
   };
-  double min = rots[0];
+  double counts[4] = {rots[0],rots[0],rots[0],rots[3]};
   
-  for (int i = 1; i < 6; i++) {
-    if (rots[i] < min) {
-      min = rots[i];
+  for (uint8_t i = 1; i < 6; i++) {
+    if (rots[i] < counts[0]) {
+      counts[0] = rots[i];
+    }
+    if (rots[i] > counts[1]) {
+      counts[1] = rots[i];
     }
   }
-  return min;
-}
-double maxRots() {    
-  double rots[] = {
-    leftDrive1.position(rev), leftDrive2.position(rev), leftmiddle.position(rev),
-    rightDrive1.position(rev), rightDrive2.position(rev), rightmiddle.position(rev)
-  };
-  double max = rots[0];
-  
-  for (int i = 1; i < 6; i++) {
-    if (rots[i] > max) {
-      max = rots[i];
-    }
+  for (uint8_t i = 0; i < 3; i++) {
+    counts[2] += rots[i];
+    counts[3] += rots[i + 3];
   }
-  return max;
+  return counts[idx];
 }
 
 double mod(double a, double b) {
@@ -136,7 +132,9 @@ double mod(double a, double b) {
 int8_t sgn(double x) {
   return x > 0 ? 1 : x < 0 ? -1 : 0;
 }
-
+double dir(double x) {
+  return mod(x - 180, 360) - 180;
+}
 // get the angle at which the robot needs to turn to point towards point (x,y)
 double degToTarget(double x1, double y1, double x2, double y2, bool Reverse = false, double facing = Gyro.rotation(degrees)) { 
 	// First formula then second formula until the % operator so we dont have to use this formula multiple times.
@@ -314,10 +312,10 @@ void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_
   volatile double sum = 0;
   uint32_t startTime = vex::timer::system();
   bool isOpen;
-	 
+
   while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
     // did this late at night but this while is important 
-    error = target - minRots() * Diameter * pi; //the error gets smaller when u reach ur target
+    error = target - wheelRevs(0) * Diameter * pi; //the error gets smaller when u reach ur target
     sum = sum * decay + error;
     speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
     speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
@@ -339,7 +337,7 @@ void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_
   }
 }
 
-void unitArc(double target, double propLeft=1, double propRight=1, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
+void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc = true, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
 	double Kp = 6; // was previously 50/3
 	double Ki = 1; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
@@ -364,10 +362,12 @@ void unitArc(double target, double propLeft=1, double propRight=1, bool endClaw 
 	 
   while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
     // did this late at night but this while is important 
-    error = target - maxRots() * Diameter * pi; //the error gets smaller when u reach ur target
+    error = target - wheelRevs(1) * Diameter * pi; //the error gets smaller when u reach ur target
     sum = sum * decay + error;
     speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
-    speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
+    if (trueArc) {
+      speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
+    }
     drive(speed * propLeft, speed * propRight, 10);
     olderror = error;
     isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
@@ -388,6 +388,136 @@ void unitArc(double target, double propLeft=1, double propRight=1, bool endClaw 
 
 //if gyro needs calibrating add a 10ms wait or something, gyro cal takes about 1.5 sec
 //1 sec if your good
+
+double cot(double x) {
+  return x != 0 ? 1 / tan(x) : 0;
+}
+
+void arcTo(double x2, double y2, bool Reverse = false, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
+  double Kp = 7; // was previously 50/3
+	double Ki = 1.5; // to increase speed if its taking too long.
+	double Kd = 15; // was previously 40/3
+	double decay = 0.5; // integral decay
+	volatile double speed;
+	volatile double error;
+	volatile double olderror = INF;
+  volatile double x = 0, y = 0;
+  volatile double sum = 0;
+  double L = 0, R = 0;
+  double w = WIDTH / 2;
+  double deltaR, deltaL;
+  double theta = 90 - Gyro.rotation(degrees) + 180 * Reverse;
+
+  /*
+  𝜃 = current direction
+  w = WIDTH / 2
+  x = current xPos
+  y = current yPos
+  x' = desired xPos
+  y' = desired yPos
+
+  FOR FINDING RATIO:
+  For O:
+  intersection point of y=mx+b and y=nx+c: x = (b-c)/(n-m), y = nx + c )
+  m = -cot(θ),
+  n = (x - x') / (y' - y),
+  b = y - xm,
+  c = (x'^2 + y'^2 - x^2 - y^2) / 2(y' - y)
+  
+  O = [ (b-c) / (n-m), nx + c) ]
+  r = √{(Ox-x)^2 + (Oy-y)^2}
+  ∆θ = 2 * atan2(y - y', x - x') - 2θ
+
+  ∆R = π∆θ(r + w) / 180
+  ∆L = π∆θ(r - w) / 180
+
+  FOR FINDING POSITION:
+  r = w(∆R + ∆L) / (∆R - ∆L)
+
+  θ' = 90(∆R - ∆L) / πw + θ - 90
+  ∆x = r[cos(θ') - sin(θ)]
+  ∆y = r[sin(θ') + cos(θ)]
+  */
+	x2 *= UNITSIZE; // convert UNITS to inches
+  y2 *= UNITSIZE; // convert UNITS to inches
+	 
+  leftDrive1.setPosition(0, rev);
+	leftDrive2.setPosition(0, rev);
+  leftmiddle.setPosition(0, rev);
+  rightDrive1.setPosition(0, rev);
+  rightDrive2.setPosition(0, rev);
+  rightmiddle.setPosition(0, rev);
+	 
+  
+  uint32_t startTime = vex::timer::system();
+  bool isOpen;
+
+  do {
+    L = wheelRevs(2), R = wheelRevs(3);
+    if (theta != atan2(y2-y,x2-x) DEG) {
+      // do positional calculations
+      double m = -cot(theta RAD), n = (x - x2) / (y2 - y), b = y - x* m, c = (x2*x2 + y2*y2 - x*x - y*y);
+      double Ox = (b - c) / (n - m), Oy = n * x + c;
+      double r = sqrt((Ox-x)*(Ox-x) + (Oy-y)*(Oy-y));
+      double deltaTheta = mod(2 * (atan2(y - y2, x - x2) - theta), 360);
+      
+      double deltaR = pi * deltaTheta * (r + w) / 180;
+      double deltaL = pi * deltaTheta * (r - w) / 180;
+      double ratio = deltaL / deltaR; 
+      error = fmax(deltaL,deltaR);//(deltaL + deltaR) / 2; 
+      /*Controller1.Screen.setCursor(0,0);
+      Controller1.Screen.print("%0.2f, %0.2f, %0.1f, %0.1f",error, deltaTheta, r);
+      //wait(100,msec);*/
+
+      sum = sum * decay + error;
+      speed = Kp * error + Ki * sum + Kd * (error - olderror); // get speed
+      double speedL = speed * ratio, speedR = speed / ratio;
+      if (speedR > speedL) {
+        if (fabs(speedR) > maxSpeed) {
+          speedL *= fabs(maxSpeed / speedR);
+          speedR = sgn(speedR) * maxSpeed;
+        }
+      }
+      else if (fabs(speedL) > maxSpeed) {
+        speedR *= fabs(maxSpeed / speedL);
+        speedL = sgn(speedL) * maxSpeed;
+      }
+      drive(speedL,speedR,30);
+    }
+    else {
+      sum = sum * decay + error;
+      error = (Reverse ? -1 : 1) * sqrt(x2 * x2 + y2 * y2);
+      speed = Kp * error + Ki * sum + Kd * (error - olderror); // get speed
+      drive(speed,speed,30);
+    }
+    olderror = error;
+    // calculate new position
+    deltaL = (wheelRevs(2) - L) * pi * Diameter,
+    deltaR = (wheelRevs(3) - R) * pi * Diameter;
+
+    double r = w * (deltaR + deltaR) / (deltaR - deltaL);
+    double theta2 = 90 * (deltaR - deltaL) / pi / w + theta - 90;
+    x += r*(cos(theta2 RAD) - sin(theta RAD));
+    y += r*(sin(theta2 RAD) + cos(theta RAD));
+    theta = 90 - Gyro.rotation(deg) + 180 * Reverse;
+    // clawing
+    isOpen = Reverse ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
+    
+    if (endClaw && isOpen && (/*DistClaw.objectDistance(inches) < 2 ||*/ fabs(error) <= clawDist)) { // close claw b4 it goes backwards.
+      if (Reverse) Claw(!CLAW_OPEN);
+      else mogoTilt(!TILT_OPEN);
+    }
+    if (raiseMogo && !isOpen && (error + 6 < clawDist) && Lift.position(degrees) < 10) {
+      liftTo(mogoHeight,0);
+    }
+  }
+	while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime);
+	brakeDrive();
+  if (endClaw && isOpen) {
+    if (Reverse) Claw(!CLAW_OPEN);
+    else mogoTilt(!TILT_OPEN);
+  }
+}
 
 void balance() { // WIP
   Brain.Screen.clearScreen();
@@ -625,9 +755,8 @@ void auton() {
 	while (Gyro.isCalibrating() || GPS.isCalibrating()) { // dont start until gyro and GPS are calibrated
 		wait(10, msec);
 	}
-	//GPS.setRotation(GPS.rotation(degrees) - 90+90, degrees);
-	//Gyro.setRotation(GPS.rotation(degrees), degrees);
-  Gyro.setRotation(90, degrees);
+	GPS.setRotation(GPS.rotation(degrees) - 90, degrees);
+	Gyro.setRotation(GPS.rotation(degrees), degrees);
 	NOTE "AUTO PLAN:";
 	NOTE "START ON RED SIDE LEFT";
 	/*
@@ -661,14 +790,14 @@ void auton() {
   Lift.setPosition(0, degrees); // set lift rotation
   liftTo(7.5,0);
   // CLAW MID
-  turnTo(-90,100,1000);
+  turnTo(90,100,1000);
   unitDrive(1.025,0,0,INF,33);
   liftTo(-10,0);
   wait(500,msec);
   unitDrive(0.35,true,3);
   // PLATFORM MID
   liftTo(75,0); // raise lift
-  turnTo(178,100,1000); // aim
+  turnTo(-2,100,1000); // aim
   unitArc(2,0.75,1,false,0,1500); // Go To platform
   liftTime(-100, 300,true);
   Claw(CLAW_OPEN); // drop it
@@ -692,10 +821,10 @@ void auton() {
   Claw(CLAW_OPEN); // drop it
   // CLAW RIGHT YELLOW
   unitArc(-1.5,0.5,1); // back up
-  turnTo(0,100,1000);
+  turnTo(180,100,1000);
   unitDrive(2.5,true,36,INF,100,true,15);
   // TILT RIGHT BLUE
-  turnTo(90,100,1300);
+  turnTo(-90,100,1300);
   unitDrive(-0.5,true,3,INF,67);
   // PLATFORM RIGHT YELLOW
   turnTo(180,100,1500);
@@ -706,7 +835,7 @@ void auton() {
   Claw(CLAW_OPEN);
   // PLATFORM RIGHT BLUE
   unitArc(-3,0.667,1);
-  turnTo(180,100,1000);
+  turnTo(0,100,1000);
   unitDrive(1.5,false,0,1000);
   Claw(CLAW_OPEN);
   return;
@@ -899,7 +1028,8 @@ void driver() {
   while (Gyro.isCalibrating() || GPS.isCalibrating()) { // dont start until gyro is calibrated
     wait(10, msec);
   }
-  Gyro.setRotation(GPS.rotation(degrees) - 90, degrees);
+  //Gyro.setRotation(GPS.rotation(degrees) - 90, degrees);
+  Gyro.setRotation(0, degrees);
   //Controller1.Screen.print("%0.3f", Gyro.rotation(deg));
   bool r2Down = false;
   bool r1Down = false;
@@ -960,10 +1090,12 @@ void driver() {
 		}
     // position identification
 		if (Controller1.ButtonDown.pressing()) {
-      auton();/*pointAt(-3, -3);
+      //auton();
+      /*pointAt(-3, -3);
       driveTo(-1.63,0);
       wait(1000,msec);
       driveTo(2.1, 2.7);*/
+      arcTo(1,1);
     }
     if (Controller1.ButtonLeft.pressing())
     {
