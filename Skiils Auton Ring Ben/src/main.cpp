@@ -468,6 +468,8 @@ void arcTo(double x2, double y2, bool Reverse = false, bool endClaw = false, dou
       /*Controller1.Screen.setCursor(0,0);
       Controller1.Screen.print("%0.2f, %0.2f, %0.1f, %0.1f",error, deltaTheta, r);
       //wait(100,msec);*/
+      unitArc(error, deltaL/deltaR, deltaR/deltaL);
+      return;
 
       sum = sum * decay + error;
       speed = Kp * error + Ki * sum + Kd * (error - olderror); // get speed
