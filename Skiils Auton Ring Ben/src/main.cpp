@@ -66,6 +66,7 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define WIDTH 15
 #define RAD * pi / 180
 #define DEG * 180 / pi
+#define INFTSML 0.00000000000000000001
 
 // for red comments
 
@@ -137,19 +138,26 @@ double dir(double x) {
 }
 
 double cot(double x) {
-    return x != 0 ? cos(x) / sin(x) : 0;
+  return mod(x, 180) != 0 ? tan(90 - x) : INF;
 }
 
-std::array<long double,2> calcArc(double deltaX, double deltaY, double theta = 90 - Gyro.rotation(deg), double w = WIDTH / 2) {
-  double targetDir = atan2(deltaY, deltaX) DEG;
-
+std::array<long double,2> calcArc(double dx, double dy, double theta = 90 - Gyro.rotation(deg), double w = WIDTH / 2) {
+	double targetDir = atan2(dy, dx) DEG, oX, oY;
+	
   if (mod(theta,180) != mod(targetDir, 180)) {
-    double n = -deltaX / deltaY;
-    double c = (deltaX * deltaX + deltaY * deltaY) / 2 / deltaY;
-    double oX = -c / (cot(theta RAD) + n);
-    double oY = n * oX + c;
-    double r = sgn(dir(atan2(deltaY, -deltaX) DEG - theta)) * sqrt(oX * oX + oY * oY);
-    double deltaTheta = dir(2*(atan2(deltaY, deltaX) DEG - theta));
+		double m = -cot(theta RAD);
+		if (dy != 0) {
+			double n = -dx / dy;
+			double c = (dx * dx + dy * dy) / (2 * dy);
+
+			double oX = c / (m - n);
+			double oY = n * oX + c;
+		}
+		else {
+			double oX = dx / 2, oY = m * oX; // i calculated this limit
+		}
+    double r = sgn(dir(atan2(dy, dx) DEG - theta)) * sqrt(oX * oX + oY * oY);
+    double deltaTheta = dir(2 * (atan2(-dy, -dx) DEG - theta));
     return {deltaTheta * (r - w) RAD, deltaTheta * (r + w) RAD};
   }
   else { // if its pointing straight at it, then we'll get some errors
