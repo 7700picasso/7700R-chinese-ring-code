@@ -537,9 +537,9 @@ void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, u
 
 void balance(bool self = true) { // WIP
   Brain.Screen.clearScreen();
-  double Kp = 2;
-  double Kt = 0.15; // constant for tip counts. This acts like Ki.
-  volatile double speed;
+  //double Kp = 2;
+  //double Kt = 0.15; // constant for tip counts. This acts like Ki.
+  //volatile double speed;
   volatile double pitch = Gyro.pitch(degrees);
 
   const uint8_t maxPitchIdx = 2;
@@ -559,20 +559,27 @@ void balance(bool self = true) { // WIP
 
   while (vex::timer::system() - startTime < 1300) {
     pitch = Gyro.pitch(degrees);
-    speed = Kp * pitch;
-
-    if (fabs(pitch) > 5) {
-      // if its at the bottom of the platform and it wont go up, then someone didn't use this function correctly.
-      if (fabs(pitch) > stopAng) {
-        drive(speed, speed, 30);
-        inclineDir = sgn(pitch);
-      }
-      else if (sgn(pitch * oldpitch) == 1) {
-        unitDrive((Kt * (underCount - overCount) - backDist) / UNITSIZE);
-        wait(500,msec);
-      }
-      startTime = vex::timer::system();
-    }
+		
+		if (fabs(pitch) > stopAng) {
+			drive(50,50);
+		}
+		else if (fabs(pitch) >= 5) {
+			unitDrive(sgn(pitch) * (0 * (underCount - overCount) - backDist) / UNITSIZE);
+      while (!(Controller1.ButtonLeft.pressing() || Controller1.ButtonUp.pressing() || Controller1.ButtonRight.pressing())) {
+				wait(10,msec);
+			}
+			underCount += Controller1.ButtonLeft.pressing();
+			overCount += Controller1.ButtonRight.pressing();
+			if (Controller1.ButtonUp.pressing()) {
+				Controller1.Screen.setCursor(0,0);
+				Controller1.Screen.print(backDist);
+				return;
+			}
+		}
+		 if (fabs(pitch) < 5) {
+			brakeDrive();
+			startTime = vex::timer::system();
+		}
     else {
       brakeDrive();
       if (self) {
