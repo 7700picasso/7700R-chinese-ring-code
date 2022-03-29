@@ -135,6 +135,41 @@ int8_t sgn(double x) {
 double dir(double x) {
   return mod(x - 180, 360) - 180;
 }
+
+double cot(double x) {
+    return x != 0 ? cos(x) / sin(x) : 0;
+}
+
+std::array<long double,2> calcArc(double deltaX, double deltaY, double theta = 90 - Gyro.rotation(deg), double w = WIDTH / 2) {
+  double targetDir = atan2(deltaY, deltaX) DEG;
+
+  if (mod(theta,180) != mod(targetDir, 180)) {
+    double n = -deltaX / deltaY;
+    double c = (deltaX * deltaX + deltaY * deltaY) / 2 / deltaY;
+    double oX = -c / (cot(theta RAD) + n);
+    double oY = n * oX + c;
+    double r = sgn(dir(atan2(deltaY, -deltaX) DEG - theta)) * sqrt(oX * oX + oY * oY);
+    double deltaTheta = dir(2*(atan2(deltaY, deltaX) DEG - theta));
+    return {deltaTheta * (r - w) RAD, deltaTheta * (r + w) RAD};
+  }
+  else { // if its pointing straight at it, then we'll get some errors
+    double dist = (mod(theta, 360) == mod(targetDir, 360) ? 1 : -1) * sqrt(deltaX * deltaX + deltaY * deltaY);
+    return {dist, dist};
+  }
+}
+
+std::array<double, 2> calcPos(double deltaL, double deltaR, double theta = 90 - Gyro.rotation(deg), double w = WIDTH / 2) {
+  if (deltaL != deltaR) {
+    double r = w * (deltaR + deltaL) / (deltaR - deltaL);
+    double theta2 = 90 * (deltaR - deltaL) / pi / w + theta - 90;
+    double oX = -r * sin(theta RAD), oY = r * cos(theta RAD);
+    return {oX + r * cos(theta2 RAD), oY + r * sin(theta2 RAD)};
+  }
+  else {
+    return {deltaL * cos(theta RAD), deltaL * sin(theta RAD)};
+  }
+}
+
 // get the angle at which the robot needs to turn to point towards point (x,y)
 double degToTarget(double x1, double y1, double x2, double y2, bool Reverse = false, double facing = Gyro.rotation(degrees)) { 
 	// First formula then second formula until the % operator so we dont have to use this formula multiple times.
@@ -389,24 +424,22 @@ void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc 
 //if gyro needs calibrating add a 10ms wait or something, gyro cal takes about 1.5 sec
 //1 sec if your good
 
-double cot(double x) {
-  return x != 0 ? 1 / tan(x) : 0;
-}
-
-void arcTo(double x2, double y2, bool Reverse = false, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
+void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
+  std::array<long double, 2> arc = calcArc(x2,y2);
+  std::array<double, 2> pos;
   double Kp = 7; // was previously 50/3
-	double Ki = 1.5; // to increase speed if its taking too long.
+	double Ki = 1; // to increase speed if its taking too long.
 	double Kd = 15; // was previously 40/3
 	double decay = 0.5; // integral decay
 	volatile double speed;
-	volatile double error;
-	volatile double olderror = INF;
-  volatile double x = 0, y = 0;
+	volatile double error = sgn(arc[0] + arc[1]) * fmax(fabs(arc[0]), fabs(arc[1]));
+	volatile double olderror = error;
   volatile double sum = 0;
   double L = 0, R = 0;
-  double w = WIDTH / 2;
-  double deltaR, deltaL;
-  double theta = 90 - Gyro.rotation(degrees) + 180 * Reverse;
+  double speedR, speedL;
+  bool isOpen;
+  unitArc(arc[0] / UNITSIZE,1,arc[1]/arc[0]);
+  return;
 
   /*
   𝜃 = current direction
@@ -448,82 +481,63 @@ void arcTo(double x2, double y2, bool Reverse = false, bool endClaw = false, dou
   rightDrive2.setPosition(0, rev);
   rightmiddle.setPosition(0, rev);
 	 
-  
   uint32_t startTime = vex::timer::system();
-  bool isOpen;
 
-  do {
-    L = wheelRevs(2), R = wheelRevs(3);
-    if (theta != atan2(y2-y,x2-x) DEG) {
-      // do positional calculations
-      double m = -cot(theta RAD), n = (x - x2) / (y2 - y), b = y - x* m, c = (x2*x2 + y2*y2 - x*x - y*y);
-      double Ox = (b - c) / (n - m), Oy = n * x + c;
-      double r = sqrt((Ox-x)*(Ox-x) + (Oy-y)*(Oy-y));
-      double deltaTheta = mod(2 * (atan2(y - y2, x - x2) - theta), 360);
-      
-      double deltaR = pi * deltaTheta * (r + w) / 180;
-      double deltaL = pi * deltaTheta * (r - w) / 180;
-      double ratio = deltaL / deltaR; 
-      error = fmax(deltaL,deltaR);//(deltaL + deltaR) / 2; 
-      /*Controller1.Screen.setCursor(0,0);
-      Controller1.Screen.print("%0.2f, %0.2f, %0.1f, %0.1f",error, deltaTheta, r);
-      //wait(100,msec);*/
-      unitArc(error, deltaL/deltaR, deltaR/deltaL);
-      return;
-
-      sum = sum * decay + error;
-      speed = Kp * error + Ki * sum + Kd * (error - olderror); // get speed
-      double speedL = speed * ratio, speedR = speed / ratio;
-      if (speedR > speedL) {
-        if (fabs(speedR) > maxSpeed) {
-          speedL *= fabs(maxSpeed / speedR);
-          speedR = sgn(speedR) * maxSpeed;
-        }
-      }
-      else if (fabs(speedL) > maxSpeed) {
-        speedR *= fabs(maxSpeed / speedL);
-        speedL = sgn(speedL) * maxSpeed;
-      }
-      drive(speedL,speedR,30);
+  while (fabs(error) > 0.5 && vex::timer::system() - startTime < maxTime) {
+    // get base speed
+    sum = decay * sum + error;
+    speed = Kp * error + Ki * sum + Kd * (error - olderror);
+    speed = fabs(speed) > maxSpeed ? sgn(speed) * maxSpeed : speed; // lower speed to maxSpeed
+    // do the speeds
+    double ratio = arc[0] / arc[1];
+    if (fabs(ratio) > 0) {
+      speedL = sgn(arc[0]) * speed;
+      speedR = sgn(arc[1]) * speed * 1 / ratio;
     }
     else {
-      sum = sum * decay + error;
-      error = (Reverse ? -1 : 1) * sqrt(x2 * x2 + y2 * y2);
-      speed = Kp * error + Ki * sum + Kd * (error - olderror); // get speed
-      drive(speed,speed,30);
+      speedL = sgn(arc[0]) * speed;
+      speedR = sgn(arc[1]) * speed * ratio;
     }
+    // drive
+    drive(speedL, speedR, 30);
+    pos = calcPos((wheelRevs(2) - L) * Diameter * pi, (wheelRevs(3) - R) * Diameter * pi);
+    arc = calcArc(x2-pos[0], y2-pos[1]);
     olderror = error;
-    // calculate new position
-    deltaL = (wheelRevs(2) - L) * pi * Diameter,
-    deltaR = (wheelRevs(3) - R) * pi * Diameter;
-
-    double r = w * (deltaR + deltaR) / (deltaR - deltaL);
-    double theta2 = 90 * (deltaR - deltaL) / pi / w + theta - 90;
-    x += r*(cos(theta2 RAD) - sin(theta RAD));
-    y += r*(sin(theta2 RAD) + cos(theta RAD));
-    theta = 90 - Gyro.rotation(deg) + 180 * Reverse;
-    // clawing
-    isOpen = Reverse ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
-    
-    if (endClaw && isOpen && (/*DistClaw.objectDistance(inches) < 2 ||*/ fabs(error) <= clawDist)) { // close claw b4 it goes backwards.
-      if (Reverse) Claw(!CLAW_OPEN);
-      else mogoTilt(!TILT_OPEN);
+    error = sgn(arc[0] + arc[1]) * fmax(fabs(arc[0]), fabs(arc[1]));
+    L = wheelRevs(2);
+    R = wheelRevs(3);
+    bool claws[3] = {false, claw1.value() == CLAW_OPEN, MogoTilt.value() == TILT_OPEN};
+    isOpen = claws[endClaw];
+    if (isOpen && fabs((arc[0] + arc[1]) / 2) <= clawDist) { // close claw b4 it goes backwards.
+      switch (endClaw) {
+        case 1:
+          Claw(!CLAW_OPEN);
+          break;
+        case 2: 
+          mogoTilt(!TILT_OPEN);
+          break;
+      }
     }
-    if (raiseMogo && !isOpen && (error + 6 < clawDist) && Lift.position(degrees) < 10) {
+    if (raiseMogo && !isOpen && ((fabs(arc[0] + arc[1]) / 2) + 6 < clawDist) && Lift.position(degrees) < 10) {
       liftTo(mogoHeight,0);
     }
   }
-	while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime);
-	brakeDrive();
-  if (endClaw && isOpen) {
-    if (Reverse) Claw(!CLAW_OPEN);
-    else mogoTilt(!TILT_OPEN);
+  if (isOpen) { // close claw
+    switch (endClaw) {
+      case 1:
+        Claw(!CLAW_OPEN);
+        break;
+      case 2: 
+        mogoTilt(!TILT_OPEN);
+        break;
+    }
   }
+	brakeDrive(); // then stop
 }
 
-void balance() { // WIP
+void balance(bool self = true) { // WIP
   Brain.Screen.clearScreen();
-  double Kp = 4;
+  double Kp = 2;
   double Kt = 0.15; // constant for tip counts. This acts like Ki.
   volatile double speed;
   volatile double pitch = Gyro.pitch(degrees);
@@ -534,7 +548,7 @@ void balance() { // WIP
 
   double step = 1, oldStep = step;
   double upper = 100, lower = -100;
-  double backCoef = 4;
+  double backDist = 1;
   uint8_t inclineDir = sgn(pitch);
   uint8_t overCount = 0, underCount = 0; // over is how many times it went too far back. Under is how many times it didn't back up enough.
 
@@ -542,6 +556,7 @@ void balance() { // WIP
   bool wasTipping = true;
   volatile uint32_t startTime = vex::timer::system();
   double stopAng = 20;
+
   while (vex::timer::system() - startTime < 1300) {
     pitch = Gyro.pitch(degrees);
     speed = Kp * pitch;
@@ -553,33 +568,57 @@ void balance() { // WIP
         inclineDir = sgn(pitch);
       }
       else if (sgn(pitch * oldpitch) == 1) {
-        speed *= Kt * (underCount - overCount) - backCoef;
-        drive(speed, speed, 30); // Back up bc it has already overshot
+        unitDrive((Kt * (underCount - overCount) - backDist) / UNITSIZE);
+        wait(500,msec);
       }
       startTime = vex::timer::system();
     }
     else {
       brakeDrive();
-      wait(30, msec);
-      oldpitch = pitch;
+      if (self) {
+        wait(30, msec);
+        oldpitch = pitch;
+      }
+      else {
+        while (!(Controller1.ButtonLeft.pressing() || Controller1.ButtonUp.pressing() || Controller1.ButtonRight.pressing())) {
+          wait(10,msec);
+          if (Controller1.ButtonY.pressing())
+            return;
+        }
+        underCount += Controller1.ButtonLeft.pressing();
+        overCount += Controller1.ButtonRight.pressing();
+        if (Controller1.ButtonUp.pressing()) {
+          Controller1.Screen.setCursor(0,0);
+          Controller1.Screen.print(Kt*(underCount-overCount) - backDist);
+          return;
+        }
+      }
     }
 
     // correct backCoef
     bool tipping = fabs(pitch) > 10 && fabs(pitch) > fabs(oldpitch);
-
-    if (tipping && !wasTipping) {
+    if (self) {
+      if (tipping && !wasTipping) {
+        int8_t sign = -sgn(pitch * inclineDir); // if pitch and incline have same sign then their product is positve. otherwise, its negative. neither can be 0 :)
+        step /= !(sign * step + backDist > lower && sign * step + backDist < upper) + 1;
+        backDist += sign * step;
+        upper = (upper != 100 || sign == -1) ? backDist + step : upper; // if step it decreasing then lower upper
+        lower = (lower != -100 || sign == 1) ? backDist - step : lower; // if step is increasing then raise lower
+        // update tip counters
+        if (sign == 1) {
+          overCount++;
+        }
+        else {
+          underCount++;
+        }
+      }
+    }
+    else {
       int8_t sign = -sgn(pitch * inclineDir); // if pitch and incline have same sign then their product is positve. otherwise, its negative. neither can be 0 :)
-      step /= !(sign * step + backCoef > lower && sign * step + backCoef < upper) + 1;
-      backCoef += sign * step;
-      upper = (upper != 100 || sign == -1) ? backCoef + step : upper; // if step it decreasing then lower upper
-      lower = (lower != -100 || sign == 1) ? backCoef - step : lower; // if step is increasing then raise lower
-      // update tip counters
-      if (sign == 1) {
-        overCount++;
-      }
-      else {
-        underCount++;
-      }
+      step /= !(sign * step + backDist > lower && sign * step + backDist < upper) + 1;
+      backDist += sign * step;
+      upper = (upper != 100 || sign == -1) ? backDist + step : upper; // if step it decreasing then lower upper
+      lower = (lower != -100 || sign == 1) ? backDist - step : lower; // if step is increasing then raise lower
     }
 
     // update "old" variables
@@ -1092,6 +1131,7 @@ void driver() {
 		}
     // position identification
 		if (Controller1.ButtonDown.pressing()) {
+      //balance(false);
       //auton();
       /*pointAt(-3, -3);
       driveTo(-1.63,0);
