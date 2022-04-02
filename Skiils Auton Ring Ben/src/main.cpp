@@ -133,7 +133,7 @@ double wheelRevs(uint8_t idx) {
 }
 
 double mod(double a, double b) {
-  return (a < 0) * b + a - b * (floor(a / b) + (a < 0));
+  return (a < 0) * b + a - b * (floor(a / b) + (a < 0)); // this apparently works with decimal divisors.
 }
 
 int8_t sgn(double x) {
@@ -144,7 +144,7 @@ double dir(double x) {
 }
 
 double cot(double x) {
-  return mod(x DEG, 180) != 0 ? tan(pi / 2 - x) : INF;
+  return mod(x, pi) != 0 ? tan(pi / 2 - x) : INF;
 }
 
 std::array<double,2> calcArc(double dx, double dy, double theta = 90 - Gyro.rotation(degrees), double w = WIDTH / 2) {
@@ -155,10 +155,11 @@ std::array<double,2> calcArc(double dx, double dy, double theta = 90 - Gyro.rota
 			double n = -dx / dy;
 			double c = (dx * dx + dy * dy) / (2 * dy);
 
-			oX = c / (m - n);
+			oX = (mod(theta, 180) != 0) ? c / (m - n) : 0; // zero is limit when m = ±∞
 			oY = n * oX + c;
 		}
 		else {
+			// if there are issues with limits, then something broke.
 			oX = dx / 2, oY = m * oX; // i calculated this limit by myself. turns out that it was unnecessary because i could have done it with logic.
 		}
     double r = sgn(dir(atan2(dy, dx) DEG - theta)) * sqrt(oX * oX + oY * oY);
