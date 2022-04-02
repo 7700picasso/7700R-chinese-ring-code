@@ -50,7 +50,7 @@ competition Competition;
 
 // define your global Variables here
 char *str = "";
-const long double pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825; // much more accurate than 3.14. accurate enough to go across the universe and be within an atom of error
+const double pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825; // much more accurate than 3.14. accurate enough to go across the universe and be within an atom of error
 
 #define Diameter 3.25 * 3 / 5
 #define UNITSIZE 23.75 // tile size
@@ -59,11 +59,12 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define INF 4294967295
 #define CLAW_OPEN false
 #define TILT_OPEN false
+#define TRANS_OPEN false
 #define LIFT_UP 66
 #define DIAG sqrt(2)
 #define High_Open true
 #define SPEED_CAP 100
-#define WIDTH 15
+#define WIDTH 15.0
 #define RAD * pi / 180
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
@@ -90,6 +91,11 @@ void pre_auton(void) {
   // dont touch this 
 	
 	// BOOOOOOP whoops i touched it
+}
+
+void output(char *str) {
+  Controller1.Screen.setCursor(0, 0);
+  Controller1.Screen.print(str);
 }
 
 void drive(int lspeed, int rspeed, int wt){
@@ -141,40 +147,39 @@ double cot(double x) {
   return mod(x, 180) != 0 ? tan(90 - x) : INF;
 }
 
-std::array<long double,2> calcArc(double dx, double dy, double theta = 90 - Gyro.rotation(deg), double w = WIDTH / 2) {
+std::array<double,2> calcArc(double dx, double dy, double theta = 90 - Gyro.rotation(degrees), double w = WIDTH / 2) {
 	double targetDir = atan2(dy, dx) DEG, oX, oY;
-	
   if (mod(theta,180) != mod(targetDir, 180)) {
-		double m = -cot(theta RAD);
+		double m = -cot(theta);
 		if (dy != 0) {
 			double n = -dx / dy;
 			double c = (dx * dx + dy * dy) / (2 * dy);
 
-			double oX = c / (m - n);
-			double oY = n * oX + c;
+			oX = c / (m - n);
+			oY = n * oX + c;
 		}
 		else {
-			double oX = dx / 2, oY = m * oX; // i calculated this limit
+			oX = dx / 2, oY = m * oX; // i calculated this limit
 		}
     double r = sgn(dir(atan2(dy, dx) DEG - theta)) * sqrt(oX * oX + oY * oY);
     double deltaTheta = dir(2 * (atan2(-dy, -dx) DEG - theta));
-    return {deltaTheta * (r - w) RAD, deltaTheta * (r + w) RAD};
+    return {(deltaTheta * (r - w)) RAD, (deltaTheta * (r + w) RAD)};
   }
   else { // if its pointing straight at it, then we'll get some errors
-    double dist = (mod(theta, 360) == mod(targetDir, 360) ? 1 : -1) * sqrt(deltaX * deltaX + deltaY * deltaY);
+    double dist = (mod(theta, 360) == mod(targetDir, 360) ? 1 : -1) * sqrt(dx * dx + dy * dy);
     return {dist, dist};
   }
 }
 
-std::array<double, 2> calcPos(double deltaL, double deltaR, double theta = 90 - Gyro.rotation(deg), double w = WIDTH / 2) {
+std::array<double, 3> calcPos(double deltaL, double deltaR, double theta, double theta2 = -Gyro.rotation(deg), double w = WIDTH / 2) {
   if (deltaL != deltaR) {
     double r = w * (deltaR + deltaL) / (deltaR - deltaL);
-    double theta2 = 90 * (deltaR - deltaL) / pi / w + theta - 90;
+   // theta2 = Gyro.rotation(degrees);//90 * (deltaR - deltaL) / pi / w + theta - 90;
     double oX = -r * sin(theta RAD), oY = r * cos(theta RAD);
     return {oX + r * cos(theta2 RAD), oY + r * sin(theta2 RAD)};
   }
   else {
-    return {deltaL * cos(theta RAD), deltaL * sin(theta RAD)};
+    return {deltaL * cos(theta RAD), deltaL * sin(theta RAD),theta2};
   }
 }
 
@@ -433,21 +438,21 @@ void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc 
 //1 sec if your good
 
 void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
-  std::array<long double, 2> arc = calcArc(x2,y2);
-  std::array<double, 2> pos;
-  double Kp = 7; // was previously 50/3
-	double Ki = 1; // to increase speed if its taking too long.
-	double Kd = 15; // was previously 40/3
+  x2 *= UNITSIZE, y2 *= UNITSIZE;
+  std::array<double, 2> arc = calcArc(x2, y2);
+  std::array<double, 3> pos = {0,0};
+  double Kp = 6; // was previously 50/3
+	double Ki = 0.5; // to increase speed if its taking too long.
+	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
 	volatile double speed;
-	volatile double error = sgn(arc[0] + arc[1]) * fmax(fabs(arc[0]), fabs(arc[1]));
+	volatile double error = (fabs(arc[0]) > fabs(arc[1]) ? arc[0] : arc[1]);// sgn(arc[0] + arc[1]) * fmax(fabs(arc[0]), fabs(arc[1]));
 	volatile double olderror = error;
   volatile double sum = 0;
-  double L = 0, R = 0;
+  double L[] = {0,0,0,0,0,0,0,0}, R[] = {0,0,0,0,0,0,0,0};
   double speedR, speedL;
   bool isOpen;
-  unitArc(arc[0] / UNITSIZE,1,arc[1]/arc[0]);
-  return;
+  double theta;
 
   /*
   𝜃 = current direction
@@ -479,8 +484,6 @@ void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, u
   ∆x = r[cos(θ') - sin(θ)]
   ∆y = r[sin(θ') + cos(θ)]
   */
-	x2 *= UNITSIZE; // convert UNITS to inches
-  y2 *= UNITSIZE; // convert UNITS to inches
 	 
   leftDrive1.setPosition(0, rev);
 	leftDrive2.setPosition(0, rev);
@@ -496,24 +499,32 @@ void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, u
     sum = decay * sum + error;
     speed = Kp * error + Ki * sum + Kd * (error - olderror);
     speed = fabs(speed) > maxSpeed ? sgn(speed) * maxSpeed : speed; // lower speed to maxSpeed
+    
     // do the speeds
-    double ratio = arc[0] / arc[1];
-    if (fabs(ratio) > 0) {
-      speedL = sgn(arc[0]) * speed;
-      speedR = sgn(arc[1]) * speed * 1 / ratio;
+    if (fabs(arc[0]) > fabs(arc[1])) {
+      speedL = speed;
+      speedR = speed * arc[1] / arc[0];
     }
     else {
-      speedL = sgn(arc[0]) * speed;
-      speedR = sgn(arc[1]) * speed * ratio;
+      speedR = speed;
+      speedL = speed * arc[0] / arc[1];
     }
     // drive
-    drive(speedL, speedR, 30);
-    pos = calcPos((wheelRevs(2) - L) * Diameter * pi, (wheelRevs(3) - R) * Diameter * pi);
-    arc = calcArc(x2-pos[0], y2-pos[1]);
+    theta = 90 - Gyro.rotation(deg);
+    drive(speedL, speedR, 10);
+    L[0] = wheelRevs(2);
+    R[0] = wheelRevs(3);
+    int idx = 2;
+    pos = calcPos((L[0] - L[idx]) * Diameter * pi, (R[0] - R[idx]) * Diameter * pi, theta);
+    arc = calcArc(x2 - pos[0], y2 - pos[1]);
     olderror = error;
-    error = sgn(arc[0] + arc[1]) * fmax(fabs(arc[0]), fabs(arc[1]));
-    L = wheelRevs(2);
-    R = wheelRevs(3);
+    error = fabs(arc[0]) > fabs(arc[1]) ? arc[0] : arc[1];
+    for (int i = 2; i > 1; i--) {
+      L[i] = L[i - 1];
+      R[i] = R[i - 1];
+    }
+    L[1] = L[0];
+    R[1] = R[0];
     bool claws[3] = {false, claw1.value() == CLAW_OPEN, MogoTilt.value() == TILT_OPEN};
     isOpen = claws[endClaw];
     if (isOpen && fabs((arc[0] + arc[1]) / 2) <= clawDist) { // close claw b4 it goes backwards.
@@ -530,15 +541,15 @@ void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, u
       liftTo(mogoHeight,0);
     }
   }
-  if (isOpen) { // close claw
-    switch (endClaw) {
-      case 1:
-        Claw(!CLAW_OPEN);
-        break;
-      case 2: 
-        mogoTilt(!TILT_OPEN);
-        break;
-    }
+  switch (endClaw) {
+    case 1:
+      Claw(!CLAW_OPEN);
+      break;
+    case 2: 
+      mogoTilt(!TILT_OPEN);
+      break;
+    default:
+      break;
   }
 	brakeDrive(); // then stop
 }
@@ -569,7 +580,7 @@ void balance(bool self = true) { // WIP
     pitch = Gyro.pitch(degrees);
 		
 		if (fabs(pitch) > stopAng) {
-			drive(50,50);
+			drive(50,50,30);
 		}
 		else if (fabs(pitch) >= 5) {
 			unitDrive(sgn(pitch) * (0 * (underCount - overCount) - backDist) / UNITSIZE);
@@ -604,7 +615,7 @@ void balance(bool self = true) { // WIP
         overCount += Controller1.ButtonRight.pressing();
         if (Controller1.ButtonUp.pressing()) {
           Controller1.Screen.setCursor(0,0);
-          Controller1.Screen.print(Kt*(underCount-overCount) - backDist);
+          Controller1.Screen.print((underCount-overCount) - backDist);
           return;
         }
       }
@@ -1156,12 +1167,13 @@ void driver() {
     }
     if (Controller1.ButtonLeft.pressing())
     {
-      Controller1.Screen.setCursor(0,0);
-      Controller1.Screen.print("%0.1f °C ",getTemp()[6]);
+      Gyro.setRotation(0,deg);
+      /*Controller1.Screen.setCursor(0,0);
+      Controller1.Screen.print("%0.1f °C ",getTemp()[6]);*/
     }
-    if (getTemp()[7] > 50) {
-      Controller1.Screen.print("too hot");
-    }
+    //if (getTemp()[7] > 50) {
+      //Controller1.Screen.print("too hot");
+    //}
     wait(20,msec);
     //Controller1.Screen.clearLine();
     //Controller1.Screen.print("%0.3f,%0.3f",-GPS.yPosition(inches)/UNITSIZE,GPS.xPosition(inches)/UNITSIZE);
