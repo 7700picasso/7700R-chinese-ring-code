@@ -144,13 +144,13 @@ double dir(double x) {
 }
 
 double cot(double x) {
-  return mod(x, 180) != 0 ? tan(90 - x) : INF;
+  return mod(x DEG, 180) != 0 ? tan(90 - x) : INF;
 }
 
 std::array<double,2> calcArc(double dx, double dy, double theta = 90 - Gyro.rotation(degrees), double w = WIDTH / 2) {
 	double targetDir = atan2(dy, dx) DEG, oX, oY;
-  if (mod(theta,180) != mod(targetDir, 180)) {
-		double m = -cot(theta);
+  if (mod(theta, 180) != mod(targetDir, 180)) {
+		double m = -cot(theta RAD);
 		if (dy != 0) {
 			double n = -dx / dy;
 			double c = (dx * dx + dy * dy) / (2 * dy);
@@ -159,7 +159,7 @@ std::array<double,2> calcArc(double dx, double dy, double theta = 90 - Gyro.rota
 			oY = n * oX + c;
 		}
 		else {
-			oX = dx / 2, oY = m * oX; // i calculated this limit
+			oX = dx / 2, oY = m * oX; // i calculated this limit by myself. turns out that it was unnecessary because i could have done it with logic.
 		}
     double r = sgn(dir(atan2(dy, dx) DEG - theta)) * sqrt(oX * oX + oY * oY);
     double deltaTheta = dir(2 * (atan2(-dy, -dx) DEG - theta));
