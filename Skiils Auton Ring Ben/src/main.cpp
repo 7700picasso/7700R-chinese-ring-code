@@ -144,7 +144,7 @@ double dir(double x) {
 }
 
 double cot(double x) {
-  return mod(x DEG, 180) != 0 ? tan(90 - x) : INF;
+  return mod(x DEG, 180) != 0 ? tan(pi / 2 - x) : INF;
 }
 
 std::array<double,2> calcArc(double dx, double dy, double theta = 90 - Gyro.rotation(degrees), double w = WIDTH / 2) {
