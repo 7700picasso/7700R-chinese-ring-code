@@ -18,12 +18,12 @@
 // Robot Configuration:
 // [Name]               [Type]        [Port(s)]
 // Controller1          controller                    
-// leftDrive1           motor         1               
-// leftDrive2           motor         3               
+// leftDrive1           motor         4               
+// leftDrive2           motor         6               
 // leftmiddle           motor         5               
-// rightDrive1          motor         6               
-// rightDrive2          motor         2               
-// rightmiddle          motor         4               
+// rightDrive1          motor         1               
+// rightDrive2          motor         3               
+// rightmiddle          motor         2               
 // Lift                 motor         10              
 // Gyro                 inertial      19              
 // GPS                  gps           8               
@@ -31,7 +31,7 @@
 // DistBack             distance      16              
 // DistClaw             distance      17              
 // MogoTilt             digital_out   A               
-// ClashRoyal1          digital_out   D               
+// Transmission         digital_out   D               
 // ClashRoyal2          digital_out   E               
 // Rings                motor         9               
 // claw1                digital_out   B               
@@ -70,10 +70,7 @@ void pre_auton(void) {
   //picasso.set(false);
 	claw1.set(CLAW_OPEN);
   MogoTilt.set(TILT_OPEN);
-  ClashRoyal1.set(false);
-  ClashRoyal2.set(false);
   wait(2000, msec);
-  tall.set(High_Open);
 
   // All activities that occur before the competition starts
   // gets pistons down before match
@@ -247,14 +244,6 @@ void Claw(bool open) {
 void mogoTilt(bool state) {
   MogoTilt.set(state);
 }
-void tallmogo(bool state) {
-  tall.set(state);
-}
-
-void clashRoyal(bool state) {
-  ClashRoyal1.set(state);
-  ClashRoyal2.set(state);
-}
 
 void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = 100, bool raiseMogo = false, double accuracy = 0.25) {
 	double Kp = 10; // was previously 50/3
@@ -382,7 +371,7 @@ void balance() { // WIP
   Brain.Screen.printAt(1, 150, "i am done ");
 }
 
-void gyroturn(double target, double &idealDir,double accuracy = 1) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
+void gyroturn(double target, double &idealDir, double accuracy = 1) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
   double Kp = 0.9; // was 2.0
   double Ki = 0.05; // adds a bit less than 50% when there is 90° left.
   double Kd = 5; // was 16.0
@@ -436,8 +425,6 @@ void auton() {
 
 	Claw(CLAW_OPEN); // open claw
   mogoTilt(TILT_OPEN);
-  clashRoyal(false);
-
 	//runningAuto = true;
 
 	while (Gyro.isCalibrating()) { // dont start until gyro and GPS are calibrated
@@ -532,10 +519,10 @@ void driver() {
 		}
     // tall controls
     if (Controller1.ButtonUp.pressing()) { 
-      tall.set(!High_Open);
+      Transmission.set(!High_Open);
 		}
 		else if (Controller1.ButtonRight.pressing()) { 
-      tall.set(High_Open);
+      Transmission.set(High_Open);
 		}
 		wait(20, msec); // dont waste air 
   }

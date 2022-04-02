@@ -17,11 +17,9 @@ extern distance DistFront;
 extern distance DistBack;
 extern distance DistClaw;
 extern digital_out MogoTilt;
-extern digital_out ClashRoyal1;
-extern digital_out ClashRoyal2;
+extern digital_out Transmission;
 extern motor Rings;
 extern digital_out claw1;
-extern digital_out tall;
 
 /**
  * Used to initialize code/tasks/devices added using tools in VEXcode Pro.
