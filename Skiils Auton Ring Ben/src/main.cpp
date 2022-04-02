@@ -338,6 +338,11 @@ void clashRoyal(bool state) {
   ClashRoyal2.set(state);
 }
 
+void EndClaw(uint8_t ID, double clawDist, double error) {
+	return;
+}
+		
+
 void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
 	double Kp = 6; // was previously 50/3
 	double Ki = 1; // to increase speed if its taking too long.
@@ -560,105 +565,38 @@ void balance(bool self = true) { // WIP
   //double Kt = 0.15; // constant for tip counts. This acts like Ki.
   //volatile double speed;
   volatile double pitch = Gyro.pitch(degrees);
-
-  const uint8_t maxPitchIdx = 2;
-  volatile double oldPitches[maxPitchIdx + 1] = {pitch, pitch, pitch};
-  volatile double oldpitch = pitch;
-
-  double step = 1, oldStep = step;
-  double upper = 100, lower = -100;
-  double backDist = 1;
-  uint8_t inclineDir = sgn(pitch);
-  uint8_t overCount = 0, underCount = 0; // over is how many times it went too far back. Under is how many times it didn't back up enough.
-
-  uint8_t lastTip = sgn(pitch);
-  bool wasTipping = true;
-  volatile uint32_t startTime = vex::timer::system();
-  double stopAng = 20;
-
-  while (vex::timer::system() - startTime < 1300) {
-    pitch = Gyro.pitch(degrees);
-		
-		if (fabs(pitch) > stopAng) {
-			drive(50,50,30);
+	const double stop = 20.5;
+	double step = 1, back = 0, min = -6, max = 6; // these are reasonable boundaries.
+	int8_t sgnPitch = sgn(pitch), sgnTip = signPitch;
+	
+	while (true) {
+		pitch = Gyro.pitch(degrees)
+		sgnPitch = sgn(pitch);
+		if (fabs(pitch) > stop) {
+			drive(50,50,10);
+			sgnTip = signPitch;
 		}
-		else if (fabs(pitch) >= 5) {
-			unitDrive(sgn(pitch) * (0 * (underCount - overCount) - backDist) / UNITSIZE);
-      while (!(Controller1.ButtonLeft.pressing() || Controller1.ButtonUp.pressing() || Controller1.ButtonRight.pressing())) {
+		else {
+			unitDrive(-sgnPitch * back / UNITSIZE);
+			while (fabs(Gyro.pitch(degrees)) < stop) { // this should end with us waiting forever when its balanced
 				wait(10,msec);
+				if (fabs(Gyro.pitch(degrees)) < 3) {
+					Controller1.Screen.setCursor(0,0);
+					Controller1.Screen.print(back);
+				}
+				sgnPitch = sgn(Gyro.pitch(degrees));
 			}
-			underCount += Controller1.ButtonLeft.pressing();
-			overCount += Controller1.ButtonRight.pressing();
-			if (Controller1.ButtonUp.pressing()) {
-				Controller1.Screen.setCursor(0,0);
-				Controller1.Screen.print(backDist);
-				return;
+			// binary search the value for back.
+			if (sgnPitch != sgnTip) { // if it didn't back up enough
+				min = back;
+				back = (max + back) / 2; // slice the step in half
+			}
+			else { // if it backed up too much
+				max = back;
+				back = (min + back) / 2;  // slice the step in half
 			}
 		}
-		 if (fabs(pitch) < 5) {
-			brakeDrive();
-			startTime = vex::timer::system();
-		}
-    else {
-      brakeDrive();
-      if (self) {
-        wait(30, msec);
-        oldpitch = pitch;
-      }
-      else {
-        while (!(Controller1.ButtonLeft.pressing() || Controller1.ButtonUp.pressing() || Controller1.ButtonRight.pressing())) {
-          wait(10,msec);
-          if (Controller1.ButtonY.pressing())
-            return;
-        }
-        underCount += Controller1.ButtonLeft.pressing();
-        overCount += Controller1.ButtonRight.pressing();
-        if (Controller1.ButtonUp.pressing()) {
-          Controller1.Screen.setCursor(0,0);
-          Controller1.Screen.print((underCount-overCount) - backDist);
-          return;
-        }
-      }
-    }
-
-    // correct backCoef
-    bool tipping = fabs(pitch) > 10 && fabs(pitch) > fabs(oldpitch);
-    if (self) {
-      if (tipping && !wasTipping) {
-        int8_t sign = -sgn(pitch * inclineDir); // if pitch and incline have same sign then their product is positve. otherwise, its negative. neither can be 0 :)
-        step /= !(sign * step + backDist > lower && sign * step + backDist < upper) + 1;
-        backDist += sign * step;
-        upper = (upper != 100 || sign == -1) ? backDist + step : upper; // if step it decreasing then lower upper
-        lower = (lower != -100 || sign == 1) ? backDist - step : lower; // if step is increasing then raise lower
-        // update tip counters
-        if (sign == 1) {
-          overCount++;
-        }
-        else {
-          underCount++;
-        }
-      }
-    }
-    else {
-      int8_t sign = -sgn(pitch * inclineDir); // if pitch and incline have same sign then their product is positve. otherwise, its negative. neither can be 0 :)
-      step /= !(sign * step + backDist > lower && sign * step + backDist < upper) + 1;
-      backDist += sign * step;
-      upper = (upper != 100 || sign == -1) ? backDist + step : upper; // if step it decreasing then lower upper
-      lower = (lower != -100 || sign == 1) ? backDist - step : lower; // if step is increasing then raise lower
-    }
-
-    // update "old" variables
-    for (uint8_t i = maxPitchIdx; i > 0; i++) {
-      oldPitches[i] = oldPitches[i - 1];
-    }
-    oldPitches[0] = pitch;
-    oldpitch = oldPitches[maxPitchIdx];
-    oldStep = step;
-
-    wasTipping = fabs(pitch) > 10;
-    lastTip = !wasTipping ? lastTip : sgn(pitch);
-  }
-  Brain.Screen.printAt(1, 150, "i am done ");
+	}
 }
 
 void gyroturn(double target, double maxSpeed = SPEED_CAP, uint32_t maxTime = INF, double accuracy = 1) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
