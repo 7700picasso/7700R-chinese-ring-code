@@ -455,7 +455,7 @@ void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, u
 	volatile double error = (fabs(arc[0]) > fabs(arc[1]) ? arc[0] : arc[1]);// sgn(arc[0] + arc[1]) * fmax(fabs(arc[0]), fabs(arc[1]));
 	volatile double olderror = error;
   volatile double sum = 0;
-  double L[] = {0,0,0,0,0,0,0,0}, R[] = {0,0,0,0,0,0,0,0};
+  double L[] = {0,0}, R[] = {0,0};
   double speedR, speedL;
   bool isOpen;
   double theta;
@@ -520,15 +520,11 @@ void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, u
     drive(speedL, speedR, 10);
     L[0] = wheelRevs(2);
     R[0] = wheelRevs(3);
-    int idx = 2;
+    int idx = 1;
     pos = calcPos((L[0] - L[idx]) * Diameter * pi, (R[0] - R[idx]) * Diameter * pi, theta);
     arc = calcArc(x2 - pos[0], y2 - pos[1]);
     olderror = error;
     error = fabs(arc[0]) > fabs(arc[1]) ? arc[0] : arc[1];
-    for (int i = 2; i > 1; i--) {
-      L[i] = L[i - 1];
-      R[i] = R[i - 1];
-    }
     L[1] = L[0];
     R[1] = R[0];
     bool claws[3] = {false, claw1.value() == CLAW_OPEN, MogoTilt.value() == TILT_OPEN};
