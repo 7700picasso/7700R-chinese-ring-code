@@ -414,6 +414,116 @@ void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc 
     else mogoTilt(!TILT_OPEN);
   }
 }
+void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
+  std::array<long double, 2> arc = calcArc(x2,y2);
+  std::array<double, 2> pos;
+  double Kp = 7; // was previously 50/3
+	double Ki = 1; // to increase speed if its taking too long.
+	double Kd = 15; // was previously 40/3
+	double decay = 0.5; // integral decay
+	volatile double speed;
+	volatile double error = sgn(arc[0] + arc[1]) * fmax(fabs(arc[0]), fabs(arc[1]));
+	volatile double olderror = error;
+  volatile double sum = 0;
+  double L = 0, R = 0;
+  double speedR, speedL;
+  bool isOpen;
+  unitArc(arc[0] / UNITSIZE,1,arc[1]/arc[0]);
+  return;
+
+  /*
+  𝜃 = current direction
+  w = WIDTH / 2
+  x = current xPos
+  y = current yPos
+  x' = desired xPos
+  y' = desired yPos
+
+  FOR FINDING RATIO:
+  For O:
+  intersection point of y=mx+b and y=nx+c: x = (b-c)/(n-m), y = nx + c )
+  m = -cot(θ),
+  n = (x - x') / (y' - y),
+  b = y - xm,
+  c = (x'^2 + y'^2 - x^2 - y^2) / 2(y' - y)
+  
+  O = [ (b-c) / (n-m), nx + c) ]
+  r = √{(Ox-x)^2 + (Oy-y)^2}
+  ∆θ = 2 * atan2(y - y', x - x') - 2θ
+
+  ∆R = π∆θ(r + w) / 180
+  ∆L = π∆θ(r - w) / 180
+
+  FOR FINDING POSITION:
+  r = w(∆R + ∆L) / (∆R - ∆L)
+
+  θ' = 90(∆R - ∆L) / πw + θ - 90
+  ∆x = r[cos(θ') - sin(θ)]
+  ∆y = r[sin(θ') + cos(θ)]
+  */
+	x2 *= UNITSIZE; // convert UNITS to inches
+  y2 *= UNITSIZE; // convert UNITS to inches
+	 
+  leftDrive1.setPosition(0, rev);
+	leftDrive2.setPosition(0, rev);
+  leftmiddle.setPosition(0, rev);
+  rightDrive1.setPosition(0, rev);
+  rightDrive2.setPosition(0, rev);
+  rightmiddle.setPosition(0, rev);
+	 
+  uint32_t startTime = vex::timer::system();
+
+  while (fabs(error) > 0.5 && vex::timer::system() - startTime < maxTime) {
+    // get base speed
+    sum = decay * sum + error;
+    speed = Kp * error + Ki * sum + Kd * (error - olderror);
+    speed = fabs(speed) > maxSpeed ? sgn(speed) * maxSpeed : speed; // lower speed to maxSpeed
+    // do the speeds
+    double ratio = arc[0] / arc[1];
+    if (fabs(ratio) > 0) {
+      speedL = sgn(arc[0]) * speed;
+      speedR = sgn(arc[1]) * speed * 1 / ratio;
+    }
+    else {
+      speedL = sgn(arc[0]) * speed;
+      speedR = sgn(arc[1]) * speed * ratio;
+    }
+    // drive
+    drive(speedL, speedR, 30);
+    pos = calcPos((wheelRevs(2) - L) * Diameter * pi, (wheelRevs(3) - R) * Diameter * pi);
+    arc = calcArc(x2-pos[0], y2-pos[1]);
+    olderror = error;
+    error = sgn(arc[0] + arc[1]) * fmax(fabs(arc[0]), fabs(arc[1]));
+    L = wheelRevs(2);
+    R = wheelRevs(3);
+    bool claws[3] = {false, claw1.value() == CLAW_OPEN, MogoTilt.value() == TILT_OPEN};
+    isOpen = claws[endClaw];
+    if (isOpen && fabs((arc[0] + arc[1]) / 2) <= clawDist) { // close claw b4 it goes backwards.
+      switch (endClaw) {
+        case 1:
+          Claw(!CLAW_OPEN);
+          break;
+        case 2: 
+          mogoTilt(!TILT_OPEN);
+          break;
+      }
+    }
+    if (raiseMogo && !isOpen && ((fabs(arc[0] + arc[1]) / 2) + 6 < clawDist) && Lift.position(degrees) < 10) {
+      liftTo(mogoHeight,0);
+    }
+  }
+  if (isOpen) { // close claw
+    switch (endClaw) {
+      case 1:
+        Claw(!CLAW_OPEN);
+        break;
+      case 2: 
+        mogoTilt(!TILT_OPEN);
+        break;
+    }
+  }
+	brakeDrive(); // then stop
+}
 
 //if gyro needs calibrating add a 10ms wait or something, gyro cal takes about 1.5 sec
 //1 sec if your good
