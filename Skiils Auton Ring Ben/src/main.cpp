@@ -429,7 +429,7 @@ void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc 
 	    if (target > 0) Claw(!CLAW_OPEN);
       else mogoTilt(!TILT_OPEN);
     }
-    if (raiseMogo && !isOpen && (error + 6 < clawDist) && Lift.position(degrees) < 10) {
+    if (raiseMogo && ((!isOpen && (error + 6 < clawDist) && fabs(Lift.position(degrees) - mogoHeight) < 2) || !endClaw)) {
       liftTo(mogoHeight,0);
     }
   }
@@ -564,14 +564,14 @@ void balance(bool self = true) { // WIP
   volatile double pitch = Gyro.pitch(degrees);
 	const double stop = 20.5;
 	double step = 1, back = 0, min = -6, max = 6; // these are reasonable boundaries.
-	int8_t sgnPitch = sgn(pitch), sgnTip = signPitch;
+	int8_t sgnPitch = sgn(pitch), sgnTip = sgnPitch;
 	
 	while (true) {
-		pitch = Gyro.pitch(degrees)
+		pitch = Gyro.pitch(degrees);
 		sgnPitch = sgn(pitch);
 		if (fabs(pitch) > stop) {
 			drive(50,50,10);
-			sgnTip = signPitch;
+			sgnTip = sgnPitch;
 		}
 		else {
 			unitDrive(-sgnPitch * back / UNITSIZE);
@@ -596,7 +596,7 @@ void balance(bool self = true) { // WIP
 	}
 }
 
-void gyroturn(double target, double maxSpeed = SPEED_CAP, uint32_t maxTime = INF, double accuracy = 1) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
+void gyroturn(double target, double maxSpeed = SPEED_CAP, uint32_t maxTime = 1300, double accuracy = 1.25) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
   double Kp = 0.9;
   double Ki = 0.05;
   double Kd = 5;
@@ -622,11 +622,11 @@ void gyroturn(double target, double maxSpeed = SPEED_CAP, uint32_t maxTime = INF
   }
 }
 
-void turnTo(double target, double maxSpeed = SPEED_CAP, uint32_t maxTime = INF, double accuracy = 1) {
+void turnTo(double target, double maxSpeed = SPEED_CAP, uint32_t maxTime = 1300, double accuracy = 1.25) {
   gyroturn(mod(target - Gyro.rotation(degrees) - 180, 360) - 180, maxSpeed, maxTime, accuracy);
 }
 
-void pointAt(double x2, double y2, bool Reverse = false, uint32_t maxSpeed = SPEED_CAP, uint32_t maxTime = INF, double x1 = -GPS.yPosition(inches), double y1 = GPS.xPosition(inches), double accuracy = 1) { 
+void pointAt(double x2, double y2, bool Reverse = false, uint32_t maxSpeed = SPEED_CAP, uint32_t maxTime = 1000, double x1 = -GPS.yPosition(inches), double y1 = GPS.xPosition(inches), double accuracy = 1) { 
 	// point towards targetnss 
   x2 *= UNITSIZE, y2 *= UNITSIZE;
 	double target = degToTarget(x1, y1, x2, y2, Reverse, Gyro.rotation(degrees)); // I dont trust the gyro for finding the target, and i dont trst the gps with spinning
@@ -749,7 +749,7 @@ void auton() {
 	NOTE"  RRRR             RRRR      RRRRRRRRRRRRRR            RRRR           RRRRRRRRRRRRRR    ";
 	NOTE" RRRR               RRRR        RRRRRRRR               RRRR              RRRRRRRR       ";
 
-	Claw(!CLAW_OPEN); // open claw
+	Claw(CLAW_OPEN); // open claw
   mogoTilt(TILT_OPEN);
 
 	//runningAuto = true;
@@ -757,8 +757,8 @@ void auton() {
 	while (Gyro.isCalibrating() || GPS.isCalibrating()) { // dont start until gyro and GPS are calibrated
 		wait(10, msec);
 	}
-	GPS.setRotation(GPS.rotation(degrees) - 90, degrees);
-	Gyro.setRotation(GPS.rotation(degrees), degrees);
+	//GPS.setRotation(GPS.rotation(degrees) - 90, degrees);
+	Gyro.setRotation(-90, degrees);
 	NOTE "AUTO PLAN:";
 	NOTE "START ON RED SIDE LEFT";
 	/*
@@ -776,248 +776,98 @@ void auton() {
     12) CLAW RIGHT RED
     13) PARK ON RIGHT-RED SIDE
 	*/
-  // TILT LEFT BLUE
- 	brakeDrive(); // set motors to brake
-  unitDrive(-0.2,true,0);
-  mogoTilt(!TILT_OPEN); // clamp the mogo
+  // GET LEFT BLUE
+  unitDrive(-0.2,true,0); // get it
+  //mogoTilt(!TILT_OPEN); // clamp the mogo
   liftDeg(60,0); // raise lift a bit
-  rings(true); // intake on
+  //rings(true); // intake on
   unitDrive(0.75,false,0,1000,33); // get rings
   unitDrive(-0.25); // back up to get space
-  // CLASH LEFT YELLOW
-  unitArc(1.13,1,0); // curve to face the goal
+  // CLAW LEFT YELLOW
+  unitArc(1.123,1,0); // face the goal
   Lift.spin(forward,-100,percent); // lower lift
   Claw(CLAW_OPEN); // open claw
-  unitDrive(2.45); //USE CLASH //,true,5); // get it
+  unitDrive(2.1,true,5); // get it
   Lift.setPosition(0, degrees); // set lift rotation
-  liftTo(7.5,0);
-  // CLAW MID
-  turnTo(90,100,1000);
-  unitDrive(1.025,0,0,INF,33);
-  liftTo(-10,0);
-  wait(500,msec);
-  unitDrive(0.35,true,3);
-  // PLATFORM MID
   liftTo(75,0); // raise lift
-  turnTo(-2,100,1000); // aim
-  unitArc(2,0.75,1,false,0,1500); // Go To platform
-  liftTime(-100, 300,true);
+  // PLATFORM LEFT YELLOW
+  unitArc(2,1,0.4); // curve to face the goal
+  unitArc(2,0.175,1,true,0,3000); // curve to face the platform
+  unitDrive(0.25,false,0,500); // go into platform
+  Lift.spin(forward,-100,percent);
+  wait(300,msec);
   Claw(CLAW_OPEN); // drop it
   // PLATFORM LEFT BLUE
-  // back up
-  wait(500,msec);
-  unitDrive(-0.2,300);
-  liftDeg(20,50);
+  liftDeg(10,0);
   unitDrive(-0.75); // back up
-  liftTo(-10,0); // lower lift
+  liftTo(-20,0); // lower lift
   mogoTilt(TILT_OPEN); // drop it
   unitDrive(0.333); // leave clearance
   // switch to claw
-  gyroturn(-179,100,1000); // turn around
+  gyroturn(180); // turn around
   //liftWait(10,2000);
   unitDrive(0.667,true,3); // get it
   // platform it
   liftTo(70,0); // raise lift
-  gyroturn(-170); // turn around
+  turnTo(-25); // turn around
   unitDrive(1.4,false,0,750); // bring it to the platform
   Claw(CLAW_OPEN); // drop it
-  // CLAW RIGHT YELLOW
-  unitArc(-1.5,0.5,1); // back up
-  turnTo(180,100,1000);
-  unitDrive(2.5,true,36,INF,100,true,15);
+  wait(200,msec); // dont fall over lol
+  // GET RIGHT YELLOW
+  unitArc(-1, 1,0.3,true, false, 0,1500,100,true,-10); // back up + align
+  turnTo(-180); // face it
+  unitDrive(2.8,true,40); // get it
+  liftTo(15,0); // raise lift
   // TILT RIGHT BLUE
-  turnTo(-90,100,1300);
-  unitDrive(-0.5,true,3,INF,67);
-  // PLATFORM RIGHT YELLOW
-  turnTo(180,100,1500);
-  liftTo(70,0);
-  unitDrive(1.5);
-  unitArc(1,0.75,1);
-  unitArc(1,1,0.75);
-  Claw(CLAW_OPEN);
-  // PLATFORM RIGHT BLUE
-  unitArc(-3,0.667,1);
-  turnTo(0,100,1000);
-  unitDrive(1.5,false,0,1000);
-  Claw(CLAW_OPEN);
-  return;
-  liftTo(-10,0); // lower lift
-  gyroturn(160); // face the mogo
-  unitArc(4,0.75,1,true,40,INF,100,true,15); // get it
-  // TILT RIGHT BLUE
-  NOTE "END POINT";
-  wait(1000,sec);
-  gyroturn(90);
-  unitDrive(-0.5,true,3); // get it
-  gyroturn(90); // face the line of rings
-  unitDrive(1.5); // rings
-  // Lift.spin(forward,-100,pct);
-	// TILT LEFT  
-  /*unitDrive(-0.5,true,3,1000); // get it
-	Lift.setPosition(0, degrees);
-  rings(true);
-  // CLAW LEFT YELLOW
-  driveTo(-1.63,0,false,true,0,6); // get it
-  wait(200,msec);
-  liftTo(LIFT_UP,0); // raise lift
-  // RINGS
-  unitDrive(-1.3);
-	turnTo(90); // face rings
-	unitDrive(2,false,0,INF,50); // fill LEFT BLUE with rings
-	unitDrive(-0.6667); // back up
-  // PLATFORM LEFT YELLOW
-  turnTo(180);
-  unitDrive(0,false,0,1000);
-  Claw(CLAW_OPEN); // drop it
-  unitDrive(-0.25); // back up
-  // DROP LEFT BLUE 
-  turnTo(90); // aim to drop it
-  liftTo(-10,0); // lower lift
-	unitDrive(-0.75); // back up to reposition it
-  mogoTilt(TILT_OPEN); // drop it
-  unitDrive(1.75); // avoid bumping it
-  // CLAW RIGHT YELLOW
-	driveTo(1.5,0,false,true,3,3); // get it
-  liftTo(LIFT_UP,0); // position lift
-  // PLATFORM RIGHT YELLOW
-	turnTo(-150); // turn around and face the platform
-	unitDrive(2.5,false,0,2000); // go to platform
-	Claw(CLAW_OPEN); // drop it
-  unitDrive(-0.5); // back up
-  liftTo(-10,0); // lower lift
-  // CLAW MID
-	driveTo(0,0,false,true,0,6,INF,50);
-  //driveTo(0,0,false, true, -35.625 / sin(pi / 180 * Gyro.rotation(degrees)), 35.625 / sin(pi / 180 * Gyro.rotation(degrees)),INF, 50, true); // get it and align with next mogo and raise lift
-  liftTo(LIFT_UP,0); // raise lift
-  // PLATFORM MID
-	turnTo(180); // face platform
-	unitDrive(3,false,0,1750); // go to platform
-  wait(750,msec); // pause
-  Claw(CLAW_OPEN); // drop it
-	unitDrive(-0.25); // back up
-  liftTo(-10,0); // lower lift
-  // CLAW LEFT BLUE
-	turnTo(-90); // face it
-  liftWait(10); // ensure that the lift is low enough
-  unitDrive(1,true,4); // get it
-  liftTo(20,0); // raise lift
-  // TILT RIGHT BLUE + RINGS
-  turnTo(-90); // face it 
-  unitDrive(-3.25,true,1,3000); // get it
-  unitDrive(0.1667); // back up
-  liftTo(LIFT_UP,0);
-  rings(true); // turn on rings
-	turnTo(0); // face forward
-	unitDrive(4,false,0,3000,50);
-	// ALIGN FOR PARKING
-	driveTo(2.1, 2.7, false, false, 0, 0, 2000); // use wall to align with the platform. also fill the goal with rings
-	unitDrive(-2.5 / UNITSIZE,false,0,INF); // back up from wall
-	turnTo(-90); // point straight
-  // PARK
-  Lift.spin(forward,-10,percent);
-  Lift.setMaxTorque(1, torqueUnits::InLb); // lower tourque so that it can stopa
-  unitDrive(49 / UNITSIZE); // hopefully goes to the middle
-  if (fabs(Gyro.pitch(degrees)) < 21) { // don't pause for no reason
-    wait(750,msec); // wait before continuing
-  }
-  balance(); // just in case its not balanced.
-  /* // prep stuff
- 	brakeDrive(); // set motors to brake
-	Lift.spin(forward,-100,pct);
-	// TILT LEFT  
+  turnTo(-90); // face it
   unitDrive(-0.5,true,3,1000); // get it
-	Lift.setPosition(0, degrees);
-  rings(true);
-  // CLAW LEFT YELLOW
-  driveTo(-1.6,0,false,true,0,6); // get it
-  wait(200,msec);
-  liftTo(LIFT_UP,0); // raise lift
-  // RINGS
-  unitDrive(-1.1);
-  //driveTo(-1.667,-0.75); // align with rings
-	turnTo(90); // face rings
-	unitDrive(1.8,false,0,INF,50); // fill LEFT BLUE with rings
-	unitDrive(-0.133333); // back up
-  // PLATFORM LEFT YELLOW
-  turnTo(180);
-  unitDrive(0.875,false,0,1000);
-	//rings(false); // disable rings
-  Claw(CLAW_OPEN); // drop it
-  unitDrive(-0.25,false,0,1000);//driveTo(0,-1.5,true); // back up
-  // DROP LEFT BLUE 
-  liftTo(-10,0); // lower lift
-  turnTo(90); // aim to drop it
-	unitDrive(-0.25); // back up to reposition it
-  mogoTilt(TILT_OPEN); // drop it
-  unitDrive(1.75); // avoid bumping it
-  // CLAW RIGHT YELLOW
-  //gyroturn(-100,100,INF,5); // face the general direction. does not need to pe a precise turn
-	driveTo(1.63,0,false,true,3,3); // get it
-  //driveTo(1.5,0.333,false, true, -24,24,4000,SPEED_CAP,true); // get it and align for next goal
-  liftTo(LIFT_UP,0); // position lift
-  // TILT RIGHT RED
-  driveTo(1.25, 2.5, true, true, 3, 3, 2000,67); // get it
-  unitDrive(1.5,false,0,2500); // back up
+  liftTo(70,0);
+  turnTo(0); // face rings
+  unitDrive(1.5); // rings
   // PLATFORM RIGHT YELLOW
-	gyroturn(-135); // turn around and face the platform
-	unitDrive(2.5,false,0,2000); // go to platform
-  driveTo(1.25,-1); // approach
-  driveTo(0.6,-1.8, false, false, 0, 0, 1500,50); // go to platform
-	Claw(CLAW_OPEN); // drop it
-  unitDrive(-0.5); // back up
-  // DROP RIGHT RED
-  liftTo(-10,0); // lower lift
-  //mogoTilt(TILT_OPEN); // drop it.
-  // CLAW MID
-	driveTo(0,0,false,true,0,6,INF,50);
-  //driveTo(0,0,false, true, -35.625 / sin(pi / 180 * Gyro.rotation(degrees)), 35.625 / sin(pi / 180 * Gyro.rotation(degrees)),INF, 50, true); // get it and align with next mogo and raise lift
-  liftTo(LIFT_UP,0); // raise lift
-  // TILT LEFT RED + RINGS
-  driveTo(-2.5,1.5,true,true,3,3,2250); // get it
-  driveTo(-2,1.5,false,false,0,0,1000); // align with rings
-  rings(true);
-	gyroturn(-90);
-	unitDrive(1.5); // ring line 1
-  driveTo(0,0); // ring line 2
-  // PLATFORM MID
-	turnTo(180); // face platform
-	//gyroturn(90); // face platform
-	unitDrive(3,false,0,1750); // go to platform
-  wait(300,msec);  // pause
+  unitArc(1.5,0.6, 1); // half align
+  unitArc(1.5, 1,0.6,true, 0,1300); // go to platform
+  unitDrive(0.25, false, 0, INF, 100, false,1000); // ensure that we go into the platform
   Claw(CLAW_OPEN); // drop it
-  //rings(false); // turn off rings
-	unitDrive(-0.25); // back up
+  // PLATFORM RIGHT BLUE
+  unitArc(-1.1,0.125, 1); // back up
   liftTo(-10,0); // lower lift
-  // DROP LEFT RED
-  //mogoTilt(TILT_OPEN); // drop it
-  // CLAW LEFT BLUE
-	turnTo(-90); // face it
-  liftWait(10); // ensure that the lift is low enough
-  unitDrive(0.5,true,4); // get it
-  liftTo(LIFT_UP,0); // raise lift
-  // TILT RIGHT BLUE + RINGS
-  turnTo(-90); // face it 
-  unitDrive(-2.667,true,3,2500); // get it
-  unitDrive(0.1667); // back up
-  //driveTo(2,-1.5,true,true,0,1,1000); // align with rings
-  rings(true); // turn on rings
-	turnTo(0); // face forward
-	unitDrive(3,false,0,3000,50);
-	// ALIGN FOR PARKING
-	driveTo(2, 2.7, false, false, 0, 0, 2000); // use wall to align with the platform. also fill the goal with rings
-	unitDrive(-3.5 / UNITSIZE,false,0,INF); // back up from wall
-	turnTo(-90); // point straight
-	unitDrive(0.4); // approach platform
-  liftTo(-10, 0); // bring down the platform.
-  liftWait(10, 2667); // wait for lift to lower. But not forever.
-	liftTime(0, 0); // allow lift to get shoved a bit up.
-  // PARK
-  unitDrive(49 / UNITSIZE + 0.4); // hopefully goes to the middle
-  if (fabs(Gyro.pitch(degrees)) < 21) { // don't pause for no reason
-    wait(750,msec); // wait before continuing
-  }
-  balance(); // just in case its not balanced.
-  */
+  mogoTilt(TILT_OPEN); // drop it
+  unitDrive(0.333); // give clearance
+  gyroturn(180); // face it
+  unitDrive(1.6,true,4); // get it with claw
+  liftTo(70,0); // raise lift
+  gyroturn(90); // face platform
+  unitDrive(0.5, false, 0,750); // go to platform
+  Claw(CLAW_OPEN); // drop it
+  return;
+  // TILT LEFT RED
+  unitDrive(-0.3); // back up
+  turnTo(90); // face it
+  //Transmission.set(TRANS_OPEN); // swap to the clash
+  liftDeg(360,0); // lower clash. note that the direction of the clash is opposite to the lift
+  unitDrive(-1.3,true,3,1000); // get it
+  turnTo(91.91154968246815); // face rings
+  unitDrive(1.5); // rings
+  // CLASH MID
+  turnTo(-89.14061969183513); // face mid
+  unitDrive(2.25, false,18, INF,67,true,-360); // get it
+  // CLAW RIGHT RED
+  arcTo(1.75,1.5); // first arc
+  unitArc(1,0.4, 1, true,3,1000); // get it
+  unitDrive(-0.5); // back up
+  // ALIGN FOR BALANCE
+  turnTo(-133.15379019324126); // face the wall
+  //Transmission.set(!TRANS_OPEN); // swap to the lift
+  liftDeg(70,0); // raise lift
+  unitDrive(4.4, false, 0,3000); // go to the wall
+  unitDrive(-0.2); // back up
+  turnTo(89.13781138814466); // point straight at the platform
+  unitDrive(0.4, false, 0, INF,50);
+  //Transmission.set(TRANS_OPEN); // exploit gravity to lower the platform at a ridiculous speed
+  wait(250, msec);
+  unitDrive(1.5); // go up the platform
+  balance();
 }
 
 //driver controls,dont change unless your jaehoon or sean
@@ -1093,12 +943,12 @@ void driver() {
     // position identification
 		if (Controller1.ButtonDown.pressing()) {
       //balance(false);
-      //auton();
+      auton();
       /*pointAt(-3, -3);
       driveTo(-1.63,0);
       wait(1000,msec);
       driveTo(2.1, 2.7);*/
-      arcTo(1,1);
+      //arcTo(1,1);
     }
     if (Controller1.ButtonLeft.pressing())
     {
