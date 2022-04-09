@@ -30,10 +30,10 @@
 // DistFront            distance      15              
 // DistBack             distance      16              
 // DistClaw             distance      17              
-// MogoTilt             digital_out   B               
+// MogoTilt             digital_out   C               
 // Transmission         digital_out   F               
-// Rings                motor         10              
-// claw1                digital_out   A               
+// Rings                motor         20              
+// claw1                digital_out   E               
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"

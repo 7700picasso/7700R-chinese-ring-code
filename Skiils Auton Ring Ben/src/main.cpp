@@ -33,7 +33,7 @@
 // MogoTilt             digital_out   A               
 // ClashRoyal1          digital_out   D               
 // ClashRoyal2          digital_out   E               
-// Rings                motor         9               
+// Rings                motor         20              
 // claw1                digital_out   B               
 // tall                 digital_out   C               
 // ---- END VEXCODE CONFIGURED DEVICES ----

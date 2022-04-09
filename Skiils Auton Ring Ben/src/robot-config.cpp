@@ -24,7 +24,7 @@ distance DistClaw = distance(PORT17);
 digital_out MogoTilt = digital_out(Brain.ThreeWirePort.A);
 digital_out ClashRoyal1 = digital_out(Brain.ThreeWirePort.D);
 digital_out ClashRoyal2 = digital_out(Brain.ThreeWirePort.E);
-motor Rings = motor(PORT9, ratio6_1, false);
+motor Rings = motor(PORT20, ratio6_1, false);
 digital_out claw1 = digital_out(Brain.ThreeWirePort.B);
 digital_out tall = digital_out(Brain.ThreeWirePort.C);
 
