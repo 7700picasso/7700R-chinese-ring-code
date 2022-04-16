@@ -210,9 +210,6 @@ std::array<double,8> getTemp() {
   return temps;
 }
 
-
-
-
 void brakeDrive() {
   leftDrive1.stop(brake);
   leftDrive2.stop(brake);
@@ -694,30 +691,26 @@ void auton() {
 	while (Gyro.isCalibrating()) { // dont start until gyro and GPS are calibrated
 		wait(10, msec);
   }
-
-  "SIDE-PICASSO-MID";
   // SIDE
-  unitDrive(2.5,1,0,INF,100,true,90); // get yellow
+  unitDrive(2.5, 1, 8, INF, 100, true, 90); // get it
   // MID
   turnTo(-90);
   Fork(FORK_DOWN);
-  rings(true);
-  unitDrive(1.2,3,3); // fork tall goal
-  // RETURN HOME
-  turnTo(-45);
-  unitDrive(-2 * DIAG);
-  // WIN POINT
+  unitDrive(1.2,3,3); // get it 
+  // GO HOME
+  turnTo(-40);
+  unitDrive(-2);
+  // ALLIANCE
   turnTo(-90);
-  unitDrive(-0.5,2,3); // tilt alliance goal
+  unitDrive(-0.4, 2,3); // get it
+  rings(true);
+  // RINGS
   turnTo(0);
-  unitDrive(1.5);
-  unitDrive(-1.5);
-  turnTo(180);
-  // FEED ME RINGS
-  unitDrive(0.5,false,0,INF,33);
+  unitDrive(1.5, false, 0, INF,67);
+  unitDrive(-1.5); // go back home
 }
 
-//driver controls,dont change unless your jaehoon or sean
+
 //driver controls,dont change unless your jaehoon or sean
 void driver() {
   // User control code here, inside the loop
