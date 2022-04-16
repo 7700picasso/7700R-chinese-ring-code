@@ -22,7 +22,7 @@ distance DistFront = distance(PORT15);
 distance DistBack = distance(PORT16);
 distance DistClaw = distance(PORT17);
 digital_out MogoTilt = digital_out(Brain.ThreeWirePort.C);
-digital_out Transmission = digital_out(Brain.ThreeWirePort.F);
+digital_out Forklift = digital_out(Brain.ThreeWirePort.F);
 motor Rings = motor(PORT20, ratio6_1, false);
 digital_out claw1 = digital_out(Brain.ThreeWirePort.E);
 

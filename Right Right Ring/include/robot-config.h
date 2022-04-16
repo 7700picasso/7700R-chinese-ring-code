@@ -17,7 +17,7 @@ extern distance DistFront;
 extern distance DistBack;
 extern distance DistClaw;
 extern digital_out MogoTilt;
-extern digital_out Transmission;
+extern digital_out Forklift;
 extern motor Rings;
 extern digital_out claw1;
 

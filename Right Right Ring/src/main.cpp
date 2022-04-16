@@ -31,7 +31,7 @@
 // DistBack             distance      16              
 // DistClaw             distance      17              
 // MogoTilt             digital_out   C               
-// Transmission         digital_out   F               
+// Forklift             digital_out   F               
 // Rings                motor         20              
 // claw1                digital_out   E               
 // ---- END VEXCODE CONFIGURED DEVICES ----
@@ -56,7 +56,7 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define INF 4294967295
 #define CLAW_OPEN false
 #define TILT_OPEN false
-#define TRANS_OPEN false
+#define FORK_DOWN false
 #define LIFT_UP 66
 #define DIAG sqrt(2)
 #define High_Open true
@@ -304,9 +304,7 @@ void rings(bool on, int speed = 100) { // i think 100 is a bit fast
 }
 
 void Claw(bool open) {
-  //wait(50 * open, msec);
   claw1.set(open);
-  //wait(50 * !open, msec);
 }
 
 //idk maybe opens and closes the claw
@@ -319,7 +317,27 @@ void mogoTilt(bool state) {
   MogoTilt.set(state);
 }
 
-void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
+void Fork(bool state) {
+  Forklift.set(state);
+}
+
+void EndClaw(uint8_t clawID, double clawDist = 0, double error = 0) {
+  bool claws[] = {false, claw1.value() == CLAW_OPEN, MogoTilt.value() == TILT_OPEN, Forklift.value() == FORK_DOWN}, isOpen = claws[clawID];
+  if (isOpen && fabs(error) <= clawDist) {
+    switch (clawID) {
+      case 1: 
+        Claw(!CLAW_OPEN);
+        break;
+      case 2:
+        mogoTilt(!TILT_OPEN);
+        break;
+      case 3: 
+        Fork(!FORK_DOWN);
+    }
+  }
+}
+
+void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
 	double Kp = 6; // was previously 50/3
 	double Ki = 1; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
@@ -351,19 +369,13 @@ void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_
     drive(speed, speed, 10);
     olderror = error;
     isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
-    if (endClaw && isOpen && (/*DistClaw.objectDistance(inches) < 2 ||*/ fabs(error) <= clawDist)) { // close claw b4 it goes backwards.
-	    if (target > 0) Claw(!CLAW_OPEN);
-      else mogoTilt(!TILT_OPEN);
-    }
+    EndClaw(endClaw, clawDist, error);
     if (raiseMogo && !isOpen && (error + 6 < clawDist) && Lift.position(degrees) < 10) {
       liftTo(mogoHeight,0);
     }
   }
 	brakeDrive();
-  if (endClaw && isOpen) {
-    if (target > 0) Claw(!CLAW_OPEN);
-    else mogoTilt(!TILT_OPEN);
-  }
+  EndClaw(endClaw);
 }
 
 void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc = true, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
@@ -400,20 +412,56 @@ void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc 
     drive(speed * propLeft, speed * propRight, 10);
     olderror = error;
     isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
-    if (endClaw && isOpen && (/*DistClaw.objectDistance(inches) < 2 ||*/ fabs(error) <= clawDist)) { // close claw b4 it goes backwards.
-	    if (target > 0) Claw(!CLAW_OPEN);
-      else mogoTilt(!TILT_OPEN);
-    }
+    EndClaw(endClaw,clawDist,error);
     if (raiseMogo && !isOpen && (error + 6 < clawDist) && Lift.position(degrees) < 10) {
       liftTo(mogoHeight,0);
     }
   }
 	brakeDrive();
-  if (endClaw && isOpen) {
-    if (target > 0) Claw(!CLAW_OPEN);
-    else mogoTilt(!TILT_OPEN);
-  }
+  EndClaw(endClaw);
 }
+
+void arcTurn(double target, double propLeft=1, double propRight=1, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 1.25) {
+	double Kp = 6; // was previously 50/3
+	double Ki = 1; // to increase speed if its taking too long.
+	double Kd = 20; // was previously 40/3
+	double decay = 0.5; // integral decay
+	
+	target *= UNITSIZE; // convert UNITS to inches
+	
+	volatile double speed;
+	volatile double error = target;
+	volatile double olderror = error;
+	 
+  leftDrive1.setPosition(0, rev);
+	leftDrive2.setPosition(0, rev);
+  leftmiddle.setPosition(0, rev);
+  rightDrive1.setPosition(0, rev);
+  rightDrive2.setPosition(0, rev);
+  rightmiddle.setPosition(0, rev);
+	 
+  volatile double sum = 0;
+  uint32_t startTime = vex::timer::system();
+  bool isOpen;
+	 
+  while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
+    // did this late at night but this while is important 
+    error = target - dir(Gyro.rotation(deg)); // the error gets smaller when u reach ur target
+    sum = sum * decay + error;
+    speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
+    speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
+    drive(speed * propLeft, speed * propRight, 10);
+    olderror = error;
+    isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
+    EndClaw(endClaw,clawDist,error);
+    if (raiseMogo && !isOpen && (error + 6 < clawDist) && Lift.position(degrees) < 10) {
+      liftTo(mogoHeight,0);
+    }
+  }
+	brakeDrive();
+  EndClaw(endClaw);
+}
+
 void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
   std::array<long double, 2> arc = calcArc(x2,y2);
   std::array<double, 2> pos;
@@ -496,33 +544,13 @@ void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, u
     error = sgn(arc[0] + arc[1]) * fmax(fabs(arc[0]), fabs(arc[1]));
     L = wheelRevs(2);
     R = wheelRevs(3);
-    bool claws[3] = {false, claw1.value() == CLAW_OPEN, MogoTilt.value() == TILT_OPEN};
-    isOpen = claws[endClaw];
-    if (isOpen && fabs((arc[0] + arc[1]) / 2) <= clawDist) { // close claw b4 it goes backwards.
-      switch (endClaw) {
-        case 1:
-          Claw(!CLAW_OPEN);
-          break;
-        case 2: 
-          mogoTilt(!TILT_OPEN);
-          break;
-      }
-    }
+    EndClaw(endClaw,clawDist,(arc[0] + arc[1]) / 2);
     if (raiseMogo && !isOpen && ((fabs(arc[0] + arc[1]) / 2) + 6 < clawDist) && Lift.position(degrees) < 10) {
       liftTo(mogoHeight,0);
     }
   }
-  if (isOpen) { // close claw
-    switch (endClaw) {
-      case 1:
-        Claw(!CLAW_OPEN);
-        break;
-      case 2: 
-        mogoTilt(!TILT_OPEN);
-        break;
-    }
-  }
 	brakeDrive(); // then stop
+  EndClaw(endClaw);
 }
 
 //if gyro needs calibrating add a 10ms wait or something, gyro cal takes about 1.5 sec
@@ -569,6 +597,9 @@ void balance() { // WIP
       brakeDrive();
       wait(30, msec);
       oldpitch = pitch;
+      if (startTime > 500 && MogoTilt.value() != TILT_OPEN) {
+        mogoTilt(TILT_OPEN); // drop mogo because we need rings to count
+      }
     }
 
     // correct backCoef
@@ -655,9 +686,9 @@ void auton() {
 	NOTE"  RRRR             RRRR      RRRRRRRRRRRRRR            RRRR           RRRRRRRRRRRRRR    ";
 	NOTE" RRRR               RRRR        RRRRRRRR               RRRR              RRRRRRRR       ";
 
-	Claw(!CLAW_OPEN); // open claw
+	Claw(CLAW_OPEN); // open claw
   mogoTilt(TILT_OPEN);
-	//runningAuto = true;
+  Fork(!FORK_DOWN); // forklift folds up
 
 	while (Gyro.isCalibrating()) { // dont start until gyro and GPS are calibrated
 		wait(10, msec);
@@ -665,20 +696,18 @@ void auton() {
 
   "SIDE-PICASSO-MID";
   // SIDE
-  Transmission.set(!TRANS_OPEN);
-  unitDrive(2.5,false,0,INF,100,true,360);
+  unitDrive(2.5,1,0,INF,100,true,90); // get yellow
   // MID
   turnTo(-90);
+  Fork(FORK_DOWN);
   rings(true);
-  Claw(CLAW_OPEN);
-  unitDrive(1.2,true,3);
-  liftDeg(90,0);
+  unitDrive(1.2,3,3); // fork tall goal
   // RETURN HOME
-  turnTo(-70);
-  unitArc(-2.4,0.7,1);
+  turnTo(-45);
+  unitDrive(-2 * DIAG);
   // WIN POINT
   turnTo(-90);
-  unitDrive(-0.6,true,3);
+  unitDrive(-0.5,2,3); // tilt alliance goal
   turnTo(0);
   unitDrive(1.5);
   unitDrive(-1.5);
@@ -742,7 +771,6 @@ void driver() {
 		else {
 			Lift.spin(forward, tmp, percent);
 		}
-  
 
 		if (Controller1.ButtonX.pressing()) { // claw close
       Claw(!CLAW_OPEN);
@@ -750,12 +778,12 @@ void driver() {
 		else if (Controller1.ButtonA.pressing()) { //claw open
       Claw(CLAW_OPEN);
 		}
-    // tall controls
+    // forklift controls
     if (Controller1.ButtonUp.pressing()) { 
-      Transmission.set(!High_Open);
+      Forklift.set(!FORK_DOWN);
 		}
 		else if (Controller1.ButtonRight.pressing()) { 
-      Transmission.set(High_Open);
+      Forklift.set(FORK_DOWN);
 		}
 		wait(20, msec); // dont waste air 
   }

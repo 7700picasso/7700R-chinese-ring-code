@@ -339,11 +339,6 @@ void clashRoyal(bool state) {
   ClashRoyal2.set(state);
 }
 
-void EndClaw(uint8_t ID, double clawDist, double error) {
-	return;
-}
-		
-
 void unitDrive(double target, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
 	double Kp = 6; // was previously 50/3
 	double Ki = 1; // to increase speed if its taking too long.
@@ -434,10 +429,47 @@ void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc 
     }
   }
 	brakeDrive();
-  if (endClaw && isOpen) {
-    if (target > 0) Claw(!CLAW_OPEN);
-    else mogoTilt(!TILT_OPEN);
+}
+
+void arcTurn(double target, double propLeft=1, double propRight=1, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 1.25) {
+	double Kp = 6; // was previously 50/3
+	double Ki = 1; // to increase speed if its taking too long.
+	double Kd = 20; // was previously 40/3
+	double decay = 0.5; // integral decay
+	
+	target *= UNITSIZE; // convert UNITS to inches
+	
+	volatile double speed;
+	volatile double error = target;
+	volatile double olderror = error;
+	 
+  leftDrive1.setPosition(0, rev);
+	leftDrive2.setPosition(0, rev);
+  leftmiddle.setPosition(0, rev);
+  rightDrive1.setPosition(0, rev);
+  rightDrive2.setPosition(0, rev);
+  rightmiddle.setPosition(0, rev);
+	 
+  volatile double sum = 0;
+  uint32_t startTime = vex::timer::system();
+  bool isOpen;
+	 
+  while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
+    // did this late at night but this while is important 
+    error = target - dir(Gyro.rotation(deg)); // the error gets smaller when u reach ur target
+    sum = sum * decay + error;
+    speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
+    speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
+    drive(speed * propLeft, speed * propRight, 10);
+    olderror = error;
+    isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
+    //EndClaw(endClaw,clawDist,error);
+    if (raiseMogo && !isOpen && (error + 6 < clawDist) && Lift.position(degrees) < 10) {
+      liftTo(mogoHeight,0);
+    }
   }
+	brakeDrive();
+  //EndClaw(endClaw);
 }
 
 //if gyro needs calibrating add a 10ms wait or something, gyro cal takes about 1.5 sec
