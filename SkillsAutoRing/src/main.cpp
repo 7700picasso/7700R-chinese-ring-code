@@ -49,7 +49,7 @@ competition Competition;
 char *str = "";
 const double pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825; // much more accurate than 3.14. accurate enough to go across the universe and be within an atom of error
 
-#define Diameter 3.25 * 3 / 5
+#define Diameter 28 / 5
 #define UNITSIZE 23.75 // tile size
 #define MOGO_DIST 5
 #define NOTE str = 
