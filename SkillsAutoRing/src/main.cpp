@@ -65,6 +65,7 @@ const double pi = 3.141592653589793238462643383279502884197169399375105820974944
 #define RAD * pi / 180
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
+#define RING_SPEED 92
 
 // for red comments
 
@@ -294,7 +295,7 @@ void liftWait(double target, uint32_t maxTime = INF) {
 //example lift(-100,1200);  so lift 100% for 1200 msc
 // 100 is up and -100 is down,or other way around,you can figure that out
 
-void rings(bool on, int speed = 100) { // i think 100 is a bit fast
+void rings(bool on, int speed = RING_SPEED) { // i think 100 is a bit fast
   if (on) {
     Rings.spin(forward, on * speed, percent);
   }
@@ -802,7 +803,7 @@ void driver() {
 		int rstick=Controller1.Axis2.position();
 		int lstick=Controller1.Axis3.position();
 		drive(lstick, rstick,10);
-		int8_t tmp, ringSpeed = 87;
+		int8_t tmp, ringSpeed = RING_SPEED;
     // mogoTilt controls
     if (!Controller1.ButtonR2.pressing()) {
       r2Down = false;
