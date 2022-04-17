@@ -25,7 +25,7 @@
 // rightDrive2          motor         3               
 // rightmiddle          motor         2               
 // Lift                 motor         9               
-// Gyro                 inertial      19              
+// Gyro                 inertial      10              
 // GPS                  gps           8               
 // DistFront            distance      15              
 // DistBack             distance      16              
@@ -76,6 +76,7 @@ void pre_auton(void) {
   //picasso.set(false);
 	claw1.set(CLAW_OPEN);
   MogoTilt.set(TILT_OPEN);
+  Lift.setStopping(hold);
   wait(2000, msec);
 
   // All activities that occur before the competition starts
@@ -339,8 +340,8 @@ void EndClaw(uint8_t clawID, double clawDist = 0, double error = 0) {
 }
 
 void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
-	double Kp = 6; // was previously 50/3
-	double Ki = 1; // to increase speed if its taking too long.
+	double Kp = 10; // was previously 50/3
+	double Ki = 1.5; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
 	
@@ -372,6 +373,9 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
     isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
     EndClaw(endClaw, clawDist, error);
     if (raiseMogo && !isOpen && (error + 6 < clawDist) && Lift.position(degrees) < 10) {
+      if (Lift.position(deg) < -70) {
+        Lift.setPosition(0, deg);
+      }
       liftTo(mogoHeight,0);
     }
   }
@@ -380,8 +384,8 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
 }
 
 void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc = true, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
-	double Kp = 6; // was previously 50/3
-	double Ki = 1; // to increase speed if its taking too long.
+	double Kp = 10; // was previously 50/3
+	double Ki = 1.5; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
 	
@@ -423,7 +427,7 @@ void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc 
 }
 
 void arcTurn(double target, double propLeft=1, double propRight=1, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 1.25) {
-	double Kp = 6; // was previously 50/3
+	double Kp = 10; // was previously 50/3
 	double Ki = 1; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
@@ -466,7 +470,7 @@ void arcTurn(double target, double propLeft=1, double propRight=1, bool endClaw 
 void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
   std::array<long double, 2> arc = calcArc(x2,y2);
   std::array<double, 2> pos;
-  double Kp = 7; // was previously 50/3
+  double Kp = 10; // was previously 50/3
 	double Ki = 1; // to increase speed if its taking too long.
 	double Kd = 15; // was previously 40/3
 	double decay = 0.5; // integral decay
@@ -635,7 +639,7 @@ void balance() { // WIP
   Brain.Screen.printAt(1, 150, "i am done ");
 }
 
-void gyroturn(double target, double &idealDir, double accuracy = 1) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
+void gyroturn(double target, double &idealDir, double accuracy = 1.25) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
   double Kp = 0.9; // was 2.0
   double Ki = 0.05; // adds a bit less than 50% when there is 90° left.
   double Kd = 5; // was 16.0
@@ -668,7 +672,7 @@ void gyroturn(double target, double &idealDir, double accuracy = 1) { // idk may
   Brain.Screen.printAt(1, 40, "heading = %0.2f    degrees", currentDir);
 }
 
-void turnTo(double target, double accuracy = 1) {
+void turnTo(double target, double accuracy = 1.25) {
   double facing = Gyro.rotation(degrees);
   gyroturn(mod(target - facing - 180, 360) - 180, facing, accuracy);
 }
@@ -696,10 +700,12 @@ void auton() {
   }
   Gyro.setRotation(8, degrees);
   // SIDE
-  unitDrive(2.5,true,8,INF,100,true,90); // claw side
+  Lift.spin(forward, -100, pct);
+  unitDrive(2.5,true,8,INF,100,true,30); // claw side
   // MID
   turnTo(90); // face mid
-  Fork(FORK_DOWN);
+  liftTo(70,0);
+  //Fork(FORK_DOWN);
   unitDrive(1.3,3,3); // fork mid
   // GO HOME
   turnTo(60); // turn

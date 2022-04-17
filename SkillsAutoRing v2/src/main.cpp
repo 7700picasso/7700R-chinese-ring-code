@@ -25,7 +25,7 @@
 // rightDrive2          motor         3               
 // rightmiddle          motor         2               
 // Lift                 motor         9               
-// Gyro                 inertial      19              
+// Gyro                 inertial      18              
 // GPS                  gps           8               
 // DistFront            distance      15              
 // DistBack             distance      16              
@@ -37,6 +37,7 @@
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
+#include "vision.h"
 #include <math.h>
 #include <array>
 
@@ -338,9 +339,36 @@ void EndClaw(uint8_t clawID, double clawDist = 0, double error = 0) {
   }
 }
 
-void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
-	double Kp = 6; // was previously 50/3
-	double Ki = 1; // to increase speed if its taking too long.
+double getTrackSpeed(uint8_t trackingID = 0, double error = 0, double maxDist = 24) {
+  if (trackingID) {
+    switch (trackingID) {
+      case 1:
+        Vision.takeSnapshot(MOGO_RED);
+        break;
+      case 2:
+        Vision.takeSnapshot(MOGO_BLUE);
+        break;
+      case 3: 
+        Vision.takeSnapshot(MOGO_YELLOW);
+        break;
+      default:
+        break;
+    }
+  }
+  double turnSpeed = 0;
+  if (Vision.largestObject.exists && Vision.largestObject.width > 100 && Vision.largestObject.height > 20) {
+    // get position
+    const double centerX = 158;
+    const double Kp = 0.25;
+    // Then get the turning speed with proportionality
+    turnSpeed = (error > 2) * Kp * (maxDist - error) / maxDist * (Vision.largestObject.originX - centerX);
+  }
+  return turnSpeed;
+}
+
+void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, uint8_t trackingID = 0, double accuracy = 0.25) {
+	double Kp = 10; // was previously 50/3
+	double Ki = 1.5; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
 	
@@ -367,7 +395,8 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
     sum = sum * decay + error;
     speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
     speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
-    drive(speed, speed, 10);
+    double turnSpeed = getTrackSpeed(trackingID,error,24); // follow mogo if you want to
+    drive(speed + turnSpeed, speed - turnSpeed, 10);
     olderror = error;
     isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
     EndClaw(endClaw, clawDist, error);
@@ -380,8 +409,8 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
 }
 
 void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc = true, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
-	double Kp = 6; // was previously 50/3
-	double Ki = 1; // to increase speed if its taking too long.
+	double Kp = 10; // was previously 50/3
+	double Ki = 1.5; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
 	
@@ -423,8 +452,8 @@ void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc 
 }
 
 void arcTurn(double target, double propLeft=1, double propRight=1, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 1.25) {
-	double Kp = 6; // was previously 50/3
-	double Ki = 1; // to increase speed if its taking too long.
+	double Kp = 10; // was previously 50/3
+	double Ki = 1.5; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
 	
@@ -467,8 +496,8 @@ void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, u
   x2 *= UNITSIZE, y2 *= UNITSIZE;
   std::array<double, 2> arc = calcArc(x2, y2);
   std::array<double, 2> pos = {0, 0};
-  double Kp = 6; // was previously 50/3
-	double Ki = 0.5; // to increase speed if its taking too long.
+  double Kp = 10; // was previously 50/3
+	double Ki = 1; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
 	volatile double speed;
@@ -617,7 +646,7 @@ void balance(bool self = true) { // WIP
 }
 
 void gyroturn(double target, double maxSpeed = SPEED_CAP, uint32_t maxTime = 1300, double accuracy = 1.25) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
-  double Kp = 0.9;
+  double Kp = 1;
   double Ki = 0.05;
   double Kd = 5;
   double decay = 0.5; // integral decay
