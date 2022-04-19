@@ -71,6 +71,7 @@ const double pi = 3.141592653589793238462643383279502884197169399375105820974944
 #define RED 2
 #define BLUE 1
 #define YELLOW 3
+#define doThePIDThing sum = sum * decay + error; speed = Kp * error + Ki * sum + Kd * (error - olderror);
 
 // for red comments
 
@@ -401,8 +402,7 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
   while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
     // did this late at night but this while is important 
     error = target - wheelRevs(0) * Diameter * pi; //the error gets smaller when u reach ur target
-    sum = sum * decay + error;
-    speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
+    doThePIDThing
     speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
 
     if (ticks % 5 == 0) {
@@ -448,8 +448,7 @@ void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc 
   while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
     // did this late at night but this while is important 
     error = target - wheelRevs(1) * Diameter * pi; //the error gets smaller when u reach ur target
-    sum = sum * decay + error;
-    speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
+    doThePIDThing
     if (trueArc) {
       speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
     }
@@ -489,10 +488,8 @@ void arcTurn(double target, double propLeft=1, double propRight=1, bool endClaw 
   bool isOpen;
 	 
   while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
-    // did this late at night but this while is important 
     error = target - dir(Gyro.rotation(deg)); // the error gets smaller when u reach ur target
-    sum = sum * decay + error;
-    speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
+    doThePIDThing // call macro
     speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
     drive(speed * propLeft, speed * propRight, 10);
     olderror = error;
@@ -565,8 +562,7 @@ void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, u
 
   while (fabs(error) > 0.5 && vex::timer::system() - startTime < maxTime) {
     // get base speed
-    sum = decay * sum + error;
-    speed = Kp * error + Ki * sum + Kd * (error - olderror);
+    doThePIDThing
     speed = fabs(speed) > maxSpeed ? sgn(speed) * maxSpeed : speed; // lower speed to maxSpeed
     
     // do the speeds
@@ -676,8 +672,7 @@ void gyroturn(double target, double maxSpeed = SPEED_CAP, uint32_t maxTime = 130
 
   while ((fabs(error) > accuracy || fabs(speed) > 1) && vex::timer::system() - startTime < maxTime) { //fabs = absolute value while loop again
     error = target - Gyro.rotation(degrees);; //error gets smaller closer you get,robot slows down
-    sum = sum * decay + error; 
-    speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
+    doThePIDThing
     speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
     drive(speed, -speed, 10);
     Brain.Screen.printAt(1, 60, "speed = %0.2f    degrees", speed);
