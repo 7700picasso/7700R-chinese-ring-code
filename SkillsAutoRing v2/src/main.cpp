@@ -68,8 +68,8 @@ const double pi = 3.141592653589793238462643383279502884197169399375105820974944
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
 #define RING_SPEED 92
-#define RED 1
-#define BLUE 2
+#define RED 2
+#define BLUE 1
 #define YELLOW 3
 
 // for red comments
@@ -427,9 +427,9 @@ void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc 
 	double Ki = 1.5; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
-	
+
 	target *= UNITSIZE; // convert UNITS to inches
-	
+
 	volatile double speed;
 	volatile double error = target;
 	volatile double olderror = error;
@@ -868,7 +868,7 @@ void auton() {
   unitDrive(0.333); // leave clearance
   // switch to claw
   gyroturn(180); // turn around
-  unitDrive(0.667,1,3,INF,100,0,0,RED); // claw it
+  unitDrive(0.667,1,3,INF,100,0,0,BLUE); // claw it
   // platform it
   liftTo(70,0); // raise lift
   turnTo(-25); // turn around
@@ -877,7 +877,7 @@ void auton() {
   wait(200,msec); // dont fall over lol
   // GET RIGHT YELLOW
   unitArc(-1, 1,0.3,true, false, 0,1500,100,true,-10); // back up + align
-  driveTo(1.5, 1.5);
+  driveTo(1.5, 1.5); // fix position
   turnTo(-180); // face it
   unitDrive(2.8,1,40); // claw it
   liftTo(15,0); // raise lift
