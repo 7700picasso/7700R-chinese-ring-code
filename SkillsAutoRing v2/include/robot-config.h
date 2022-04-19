@@ -2,6 +2,8 @@ using namespace vex;
 
 extern brain Brain;
 
+using signature = vision::signature;
+
 // VEXcode devices
 extern controller Controller1;
 extern motor leftDrive1;
@@ -20,6 +22,14 @@ extern digital_out MogoTilt;
 extern digital_out Forklift;
 extern motor Rings;
 extern digital_out claw1;
+extern signature Vision__MOGO_RED;
+extern signature Vision__MOGO_BLUE;
+extern signature Vision__MOGO_YELLOW;
+extern signature Vision__SIG_4;
+extern signature Vision__SIG_5;
+extern signature Vision__SIG_6;
+extern signature Vision__SIG_7;
+extern vision Vision;
 
 /**
  * Used to initialize code/tasks/devices added using tools in VEXcode Pro.

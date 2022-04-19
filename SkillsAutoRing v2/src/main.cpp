@@ -34,10 +34,11 @@
 // Forklift             digital_out   F               
 // Rings                motor         20              
 // claw1                digital_out   E               
+// Vision               vision        19              
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
-#include "vision.h"
+//#include "vision.h"
 #include <math.h>
 #include <array>
 
@@ -67,6 +68,9 @@ const double pi = 3.141592653589793238462643383279502884197169399375105820974944
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
 #define RING_SPEED 92
+#define RED 1
+#define BLUE 2
+#define YELLOW 3
 
 // for red comments
 
@@ -339,29 +343,32 @@ void EndClaw(uint8_t clawID, double clawDist = 0, double error = 0) {
   }
 }
 
-double getTrackSpeed(uint8_t trackingID = 0, double error = 0, double maxDist = 24) {
+double getTrackSpeed(uint8_t trackingID = 0, double error = 0, double maxDist = 36) {
   if (trackingID) {
     switch (trackingID) {
-      case 1:
-        Vision.takeSnapshot(MOGO_RED);
+      case RED:
+        Vision.takeSnapshot(Vision__MOGO_RED);
         break;
-      case 2:
-        Vision.takeSnapshot(MOGO_BLUE);
+      case BLUE:
+        Vision.takeSnapshot(Vision__MOGO_BLUE);
         break;
-      case 3: 
-        Vision.takeSnapshot(MOGO_YELLOW);
+      case YELLOW: 
+        Vision.takeSnapshot(Vision__MOGO_YELLOW);
         break;
       default:
-        break;
+        return 0;
     }
   }
+  Brain.Screen.drawCircle(200, 200, 100,0x0000);
   double turnSpeed = 0;
-  if (Vision.largestObject.exists && Vision.largestObject.width > 100 && Vision.largestObject.height > 20) {
+  if (Vision.largestObject.exists && Vision.largestObject.width > 20) {
     // get position
     const double centerX = 158;
-    const double Kp = 0.25;
+    const double Kp = 0.4;
     // Then get the turning speed with proportionality
-    turnSpeed = (error > 2) * Kp * (maxDist - error) / maxDist * (Vision.largestObject.originX - centerX);
+    turnSpeed = (error > 2 && error < maxDist) * Kp * (Vision.largestObject.originX - centerX);
+    Brain.Screen.drawCircle(200, 200, 100,0xffff);
+    //
   }
   return turnSpeed;
 }
@@ -375,6 +382,7 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
 	target *= UNITSIZE; // convert UNITS to inches
 	
 	volatile double speed;
+  double turnSpeed = 0;
 	volatile double error = target;
 	volatile double olderror = error;
 	 
@@ -388,6 +396,7 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
   volatile double sum = 0;
   uint32_t startTime = vex::timer::system();
   bool isOpen;
+  int ticks = 0;
 
   while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
     // did this late at night but this while is important 
@@ -395,7 +404,11 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
     sum = sum * decay + error;
     speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
     speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
-    double turnSpeed = getTrackSpeed(trackingID,error,24); // follow mogo if you want to
+
+    if (ticks % 5 == 0) {
+      turnSpeed = getTrackSpeed(trackingID, error); // follow mogo if you want to
+    }
+
     drive(speed + turnSpeed, speed - turnSpeed, 10);
     olderror = error;
     isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
@@ -403,6 +416,7 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
     if (raiseMogo && !isOpen && (error + 6 < clawDist) && Lift.position(degrees) < 10) {
       liftTo(mogoHeight,0);
     }
+    ticks++;
   }
 	brakeDrive();
   EndClaw(endClaw);
@@ -674,6 +688,114 @@ void gyroturn(double target, double maxSpeed = SPEED_CAP, uint32_t maxTime = 130
 void turnTo(double target, double maxTime = 1300, double accuracy = 1) {
   gyroturn(mod(target - Gyro.rotation(degrees) - 180, 360) - 180, maxTime, accuracy);
 }
+void pointAt(double x2, double y2, bool Reverse = false, uint32_t maxSpeed = SPEED_CAP, uint32_t maxTime = 1300, double x1 = GPS.yPosition(inches), double y1 = -GPS.xPosition(inches), double accuracy = 1) { 
+	// point towards targetnss 
+  x2 *= UNITSIZE, y2 *= UNITSIZE;
+	double target = degToTarget(x1, y1, x2, y2, Reverse, Gyro.rotation(degrees)); // I dont trust the gyro for finding the target, and i dont trst the gps with spinning
+	gyroturn(target,maxSpeed,maxTime,accuracy);
+}
+bool runningAuto = 0;
+/*void printPos() {
+  while (true) {
+    //Controller1.Screen.clearLine();
+    if (!runningAuto) {
+      Controller1.Screen.setCursor(0, 0);
+      Controller1.Screen.print("(%0.2f, %0.2f), %0.2f", GPS.yPosition(inches) / -UNITSIZE, GPS.xPosition(inches) / UNITSIZE, GPS.rotation(degrees) - 90, Gyro.rotation(degrees));
+    }
+    this_thread::sleep_for(500);
+  }
+}
+vex::thread POS(printPos);*/
+//                                                        if this runs for 4.3 billion msecs, then skills is broken, and our battery is magical v
+void driveTo(double x2, double y2, bool Reverse = false, bool endClaw = false, double offset = 0, double clawDist = 6, uint32_t maxTime = 4000, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 67, uint8_t trackingID = 0, double accuracy = 0.25) {
+  // point towards target
+  wait(200, msec);
+	// get positional data
+  pointAt(x2, y2, Reverse, maxSpeed, maxTime);
+  double x1 = GPS.yPosition(inches), y1 = -GPS.xPosition(inches);
+  x2 *= UNITSIZE, y2 *= UNITSIZE;
+  //x1 = -GPS.yPosition(inches), y1 = GPS.xPosition(inches);
+
+  // go to target
+  // volatile double distSpeed = 100;
+  double target = (1 - Reverse * 2) * (sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)) - offset);
+  unitDrive(target / UNITSIZE, endClaw, clawDist, maxTime, maxSpeed, raiseMogo, mogoHeight, trackingID, accuracy);
+
+  /*return; // end cuz everything after this is experimental.
+
+  // experimental
+
+  double Kp = 10; // was previously 10
+  double Ki = 2; // to increase speed if its taking too long.
+  double Kd = 20; // was previously 20.0
+  double decay = 0.5; // integral decay
+  
+  volatile double sum = 0;
+          
+  volatile double speed;
+  volatile double error = target;
+  volatile double olderror = error;
+
+  volatile double dirError = 0;
+  volatile double oldDirError = dirError;
+  volatile double dirSpeed = 0;
+  volatile double dirSum = 0;
+  volatile double oldDir = Gyro.rotation(degrees);
+  volatile double oldL = leftmiddle.position(rev) * pi * Diameter;
+  volatile double oldR = rightmiddle.position(rev) * pi * Diameter;
+
+  double dirKp = 1.1; // was previously 10
+  double dirKi = 0.2; // to increase speed if its taking too long.
+  double dirKd = 1.25; // was previously 20.0
+  double dirDecay = 0.5; // integral decay
+     
+  leftDrive1.setPosition(0, rev);
+  leftDrive2.setPosition(0, rev);
+  leftmiddle.setPosition(0, rev);
+  rightDrive1.setPosition(0, rev);
+  rightDrive2.setPosition(0, rev);
+  rightmiddle.setPosition(0, rev);
+     
+  while(fabs(error) > accuracy || fabs(speed) > 10) {
+    bool overShot = fabs(degToTarget(x1, y1, x2, y2, Reverse)) > 100;
+    target = -((Reverse + overShot) % 2) * sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)); // the error gets smaller when u reach ur target
+    dirError = degToTarget(x1, y1, x2, y2, (Reverse + overShot) % 2);
+    sum = sum * decay + error;
+    dirSum = dirSum * dirDecay + dirError;
+
+    speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
+    dirSpeed = dirKp * dirError + dirKi * dirSum + dirKd * (dirError - oldDirError);
+    drive(speed + dirSpeed, speed - dirSpeed, 10);
+    olderror = error;
+    oldDirError = dirError;
+    
+    // r = (∆L + ∆R) / 2(θ - θ')
+    // P' = (x + r * ( sin (θ') - sin (θ) ), y + r * ( cos (θ') - cos (θ) ) )
+
+    // to ensure nothing is undefined and stuff
+
+    double L = leftmiddle.position(rev) * pi * Diameter;
+    double R = rightmiddle.position(rev) * pi * Diameter;
+    double dir = Gyro.rotation(degrees);
+    if (dir == oldDir) {
+      x1 += (olderror - error) * cos(dir),
+      y1 += (olderror - error) * sin(dir);
+    }
+    else {
+      double r = (L - oldL + R - oldR) / (oldDir - dir) / 2;
+      x1 += r * (sin(dir) - sin(oldDir));
+      y1 += r * (cos(dir) - cos(oldDir));
+    }
+    oldDir = dir;
+    oldL = L;
+    oldR = R;
+
+    if (endClaw && error < 0 && claw.value()) { // close claw b4 it goes backwards.
+      Claw(!CLAW_OPEN);
+    }
+  }
+  brakeDrive();*/
+}
 
 void auton() {
 	NOTE"            R             RRRR            RRRR  RRRRRRRRRRRRRRRRRR       RRRRRRRR       ";
@@ -698,8 +820,8 @@ void auton() {
 	while (Gyro.isCalibrating() || GPS.isCalibrating()) { // dont start until gyro and GPS are calibrated
 		wait(10, msec);
 	}
-	//GPS.setRotation(GPS.rotation(degrees) - 90, degrees);
-	Gyro.setRotation(-90, degrees);
+	GPS.setRotation(GPS.rotation(degrees) - 270, degrees);
+	Gyro.setRotation(GPS.rotation(degrees), degrees);
 	NOTE "AUTO PLAN:";
 	NOTE "START ON RED SIDE LEFT";
 	/*
@@ -725,12 +847,13 @@ void auton() {
   unitDrive(-0.25); // back up to get space
   // CLAW LEFT YELLOW
   unitArc(1.123,1,0); // face the goal
-  turnTo(25); // fix direction
+  pointAt(-1.5, 0); // fix direction
   Lift.spin(forward,-100,percent); // lower lift
-  unitDrive(2.1,1,5); // get it
+  unitDrive(2.1,1,5,INF,100,false,0,YELLOW); // get it
   Lift.setPosition(0, degrees); // set lift rotation
   liftTo(75,0); // raise lift
   // PLATFORM LEFT YELLOW
+  turnTo(25); // fix direction again
   unitArc(2,1,0.4); // curve to face the goal
   unitArc(2,0.175,1,true,0,3000); // curve to face the platform
   unitDrive(0.25,false,0,500); // go into platform
@@ -738,14 +861,14 @@ void auton() {
   wait(300,msec); // wait
   Claw(CLAW_OPEN); // drop it
   // PLATFORM LEFT BLUE
-  liftDeg(10,0);
+  liftDeg(10,0); // raise lift a bit
   unitDrive(-0.75); // back up
   liftTo(-10,0); // lower lift
   mogoTilt(TILT_OPEN); // drop it
   unitDrive(0.333); // leave clearance
   // switch to claw
   gyroturn(180); // turn around
-  unitDrive(0.667,1,3); // claw it
+  unitDrive(0.667,1,3,INF,100,0,0,RED); // claw it
   // platform it
   liftTo(70,0); // raise lift
   turnTo(-25); // turn around
@@ -754,6 +877,7 @@ void auton() {
   wait(200,msec); // dont fall over lol
   // GET RIGHT YELLOW
   unitArc(-1, 1,0.3,true, false, 0,1500,100,true,-10); // back up + align
+  driveTo(1.5, 1.5);
   turnTo(-180); // face it
   unitDrive(2.8,1,40); // claw it
   liftTo(15,0); // raise lift
@@ -878,6 +1002,15 @@ void driver() {
 		else if (Controller1.ButtonRight.pressing()) { 
       Forklift.set(FORK_DOWN);
 		}
+    // PROGRAM TESTING
+    if (Controller1.ButtonDown.pressing()) {
+      //Claw(CLAW_OPEN);
+      //unitDrive(2,true, 3,INF,100,false,0,YELLOW);
+      double turnSpeed = getTrackSpeed(2, 10);
+      Brain.Screen.setCursor(200, 200);
+      Brain.Screen.printAt(200,200,"%f", turnSpeed);
+      drive(turnSpeed, - turnSpeed, 10);
+    }
 		wait(20, msec); // dont waste air 
   }
 }
