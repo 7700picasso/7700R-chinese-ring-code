@@ -743,13 +743,13 @@ void auton() {
   //rushGoal(2.5,3000);
   unitDrive(2.3, 1, 8, INF, 100, true, 15); // get it
   // ALLIANCE
-  unitDrive(-(wheelRevs(2) + wheelRevs(3))/2 * Diameter * pi + 0.8);
+  unitDrive(-1.2);
   turnTo(-90);
   unitDrive(-0.5, 2,3); // get it
   rings(true);
   // RINGS
   turnTo(0);
-  unitDrive(1.5, false, 0, INF,67);
+  unitDrive(1.5, false, 0, INF,50);
   unitDrive(-1.5); // go back home
 }
 

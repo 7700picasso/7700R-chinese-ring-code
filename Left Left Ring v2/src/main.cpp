@@ -743,14 +743,12 @@ void auton() {
 	while (Gyro.isCalibrating()) { // dont start until gyro and GPS are calibrated
 		wait(10, msec);
   }
-  Gyro.setRotation(8, degrees);
   // SIDE
   Lift.spin(forward, -100, pct);
   //rushGoal(2.5,3000);
-  unitDrive(2.5,1,3);
-  unitDrive(-(wheelRevs(2)+wheelRevs(3)) / 2 * Diameter * pi); // back up 
-  unitDrive(-1,0,0,1000);
-  unitDrive(0.125,0,0,500); // scoot forward
+  unitDrive(2.5,1,3,1300);
+  unitDrive(-3, 0, 0, 1000); // back up 
+  unitDrive(3 / UNITSIZE,0,0,500); // scoot forward
   // ALLIANCE
   double facing = Gyro.rotation(deg);
   gyroturn(-90,facing);
