@@ -38,7 +38,6 @@
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
-//#include "vision.h"
 #include <math.h>
 #include <array>
 
@@ -215,9 +214,6 @@ std::array<double,8> getTemp() {
   return temps;
 }
 
-
-
-
 void brakeDrive() {
   leftDrive1.stop(brake);
   leftDrive2.stop(brake);
@@ -343,7 +339,7 @@ void EndClaw(uint8_t clawID, double clawDist = 0, double error = 0) {
   }
 }
 
-double getTrackSpeed(uint8_t trackingID = 0, double error = 0, double maxDist = 36) {
+double getTrackSpeed(uint8_t trackingID = 0) {
   if (trackingID) {
     switch (trackingID) {
       case RED:
@@ -366,7 +362,7 @@ double getTrackSpeed(uint8_t trackingID = 0, double error = 0, double maxDist = 
     const double centerX = 158;
     const double Kp = 0.4;
     // Then get the turning speed with proportionality
-    turnSpeed = (error > 2 && error < maxDist) * Kp * (Vision.largestObject.originX - centerX);
+    turnSpeed = Kp * (Vision.largestObject.originX - centerX);
     Brain.Screen.drawCircle(200, 200, 100,0xffff);
     //
   }
@@ -405,9 +401,7 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
     speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
     speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
 
-    if (ticks % 5 == 0) {
-      turnSpeed = getTrackSpeed(trackingID, error); // follow mogo if you want to
-    }
+    turnSpeed = (error < 36 && error > 2) * getTrackSpeed(trackingID); // follow mogo if you want to
 
     drive(speed + turnSpeed, speed - turnSpeed, 10);
     olderror = error;
@@ -950,6 +944,7 @@ void driver() {
   bool r1Down = false;
 
   bool ringsOn = false;
+  double ticks = 0;
 
   while (true) {
     // drive control
@@ -1006,12 +1001,20 @@ void driver() {
     if (Controller1.ButtonDown.pressing()) {
       //Claw(CLAW_OPEN);
       //unitDrive(2,true, 3,INF,100,false,0,YELLOW);
-      double turnSpeed = getTrackSpeed(2, 10);
-      Brain.Screen.setCursor(200, 200);
-      Brain.Screen.printAt(200,200,"%f", turnSpeed);
-      drive(turnSpeed, - turnSpeed, 10);
+      while (Controller1.ButtonDown.pressing()) {
+        double turnSpeed = getTrackSpeed(2);
+        Brain.Screen.setCursor(200, 200);
+        Brain.Screen.printAt(200,200,"%f", turnSpeed);
+        drive(turnSpeed, - turnSpeed, 10);
+      }
+    }
+    if (Controller1.ButtonLeft.pressing() && ticks > 6.667) {
+      Controller1.Screen.setCursor(0,0);
+      Controller1.Screen.print("%f",getTemp());
+      ticks = 0;
     }
 		wait(20, msec); // dont waste air 
+    ticks++;
   }
 }
   

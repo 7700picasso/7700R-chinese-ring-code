@@ -34,6 +34,7 @@
 // Forklift             digital_out   F               
 // Rings                motor         20              
 // claw1                digital_out   E               
+// Stalker              distance      7               
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
@@ -56,7 +57,7 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define INF 4294967295
 #define CLAW_OPEN false
 #define TILT_OPEN false
-#define FORK_DOWN false
+#define FORK_DOWN true
 #define LIFT_UP 66
 #define DIAG sqrt(2)
 #define High_Open true
@@ -382,6 +383,50 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
 	brakeDrive();
   EndClaw(endClaw);
 }
+void rushGoal(double target, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
+	double Kp = 10; // was previously 50/3
+	double Ki = 1.5; // to increase speed if its taking too long.
+	double Kd = 20; // was previously 40/3
+	double decay = 0.5; // integral decay
+	
+	target *= UNITSIZE; // convert UNITS to inches
+	
+	volatile double speed;
+	volatile double error = Stalker.objectDistance(inches) - 3;
+	volatile double olderror = error;
+	 
+  leftDrive1.setPosition(0, rev);
+	leftDrive2.setPosition(0, rev);
+  leftmiddle.setPosition(0, rev);
+  rightDrive1.setPosition(0, rev);
+  rightDrive2.setPosition(0, rev);
+  rightmiddle.setPosition(0, rev);
+	 
+  volatile double sum = 0;
+  uint32_t startTime = vex::timer::system();
+  bool isOpen;
+
+  while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
+    // did this late at night but this while is important 
+    error = Stalker.objectDistance(inches) - 3; //the error gets smaller when u reach ur target
+    sum = sum * decay + error;
+    speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
+    speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
+    drive(speed, speed, 10);
+    olderror = error;
+    isOpen = claw1.value() == CLAW_OPEN;
+    if (!isOpen && error < 3.5) {
+      Claw(!CLAW_OPEN);
+    }
+    if (raiseMogo && !isOpen && Lift.position(degrees) < 10) {
+      if (Lift.position(deg) < -70) {
+        Lift.setPosition(0,deg);
+      }
+      liftTo(mogoHeight,0);
+    }
+  }
+	brakeDrive();
+}
 
 void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc = true, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
 	double Kp = 10; // was previously 50/3
@@ -701,18 +746,14 @@ void auton() {
   Gyro.setRotation(8, degrees);
   // SIDE
   Lift.spin(forward, -100, pct);
-  unitDrive(2.5,true,8,INF,100,true,30); // claw side
-  // MID
-  turnTo(90); // face mid
-  liftTo(70,0);
-  //Fork(FORK_DOWN);
-  unitDrive(1.3,3,3); // fork mid
-  // GO HOME
-  turnTo(60); // turn
-  unitArc(-4, 1,0.85,true,0,0,2000); // back up into wall
+  //rushGoal(2.5,3000);
+  unitDrive(2.5,1,3);
+  unitDrive(-(wheelRevs(2)+wheelRevs(3)) / 2 * Diameter * pi); // back up 
+  unitDrive(-1,0,0,1000);
   unitDrive(0.125,0,0,500); // scoot forward
   // ALLIANCE
-  turnTo(-90); // face alliance goal
+  double facing = Gyro.rotation(deg);
+  gyroturn(-90,facing);
   unitDrive(-0.75, 2, 3,750); // tilt alliance goal
   // RINGS
   rings(true); // start intake
@@ -736,6 +777,7 @@ void driver() {
   bool r1Down = false;
 
   bool ringsOn = false;
+  unsigned int ticks = 0;
 
   while (true) {
     // drive control
@@ -788,7 +830,31 @@ void driver() {
 		else if (Controller1.ButtonRight.pressing()) { 
       Forklift.set(FORK_DOWN);
 		}
+    // brakes;
+    if (Controller1.ButtonDown.pressing()) {
+      leftDrive1.stop(brake);
+      leftDrive2.stop(brake);
+      leftmiddle.stop(brake);
+      rightDrive1.stop(brake);
+      rightDrive2.stop(brake);
+      rightmiddle.stop(brake);
+    }
+    else {
+      leftDrive1.setStopping(coast);
+      leftDrive2.setStopping(coast);
+      leftmiddle.setStopping(coast);
+      rightDrive1.setStopping(coast);
+      rightDrive2.setStopping(coast);
+      rightmiddle.setStopping(coast);
+    }
+    // motor temp
+    if (ticks > 9) {
+      Controller1.Screen.setCursor(0, 0);
+      Controller1.Screen.print("%f",getTemp());
+      ticks = 0;
+    }
 		wait(20, msec); // dont waste air 
+    ticks++;
   }
 }
   

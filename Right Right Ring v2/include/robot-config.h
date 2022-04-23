@@ -20,6 +20,7 @@ extern digital_out MogoTilt;
 extern digital_out Forklift;
 extern motor Rings;
 extern digital_out claw1;
+extern distance Stalker;
 
 /**
  * Used to initialize code/tasks/devices added using tools in VEXcode Pro.
