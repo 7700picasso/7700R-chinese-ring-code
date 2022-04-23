@@ -756,6 +756,7 @@ void auton() {
   // RINGS
   rings(true); // start intake
   unitDrive(1, false, 0, INF, 20); // use preloads as matchloads
+  
 }
 
 //driver controls,dont change unless your jaehoon or sean
