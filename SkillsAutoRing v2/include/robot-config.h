@@ -16,8 +16,6 @@ extern motor Lift;
 extern inertial Gyro;
 extern gps GPS;
 extern distance DistFront;
-extern distance DistBack;
-extern distance DistClaw;
 extern digital_out MogoTilt;
 extern digital_out Forklift;
 extern motor Rings;
