@@ -24,7 +24,7 @@ extern motor Rings;
 extern digital_out claw1;
 extern distance Stalker;
 extern signature Vision__MOGO_RED;
-extern signature Vision__MOGO_BLACK;
+extern signature Vision__MOGO_BLUE;
 extern signature Vision__MOGO_YELLOW;
 extern vision Vision;
 extern vision VisionBack;
