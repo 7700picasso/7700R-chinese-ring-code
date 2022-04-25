@@ -746,17 +746,16 @@ void auton() {
   // SIDE
   Lift.spin(forward, -100, pct);
   //rushGoal(2.5,3000);
-  unitDrive(2.5,1,3,1300);
-  unitDrive(-3, 0, 0, 1000); // back up 
-  unitDrive(3 / UNITSIZE,0,0,500); // scoot forward
+  unitDrive(2.3,1,3,1300);
+  unitDrive(-3, 0, 0, 6000); // back up 
+  unitDrive(3 / UNITSIZE); // scoot forward
   // ALLIANCE
   double facing = Gyro.rotation(deg);
   gyroturn(-90,facing);
-  unitDrive(-0.75, 2, 3,750); // tilt alliance goal
+  unitDrive(-0.75, 2, 3,750,67); // tilt alliance goal
   // RINGS
   rings(true); // start intake
-  unitDrive(1, false, 0, INF, 20); // use preloads as matchloads
-  
+  unitDrive(1, false, 0, INF, 20); // ring-around a-rosie a stick full of donuts 
 }
 
 //driver controls,dont change unless your jaehoon or sean
