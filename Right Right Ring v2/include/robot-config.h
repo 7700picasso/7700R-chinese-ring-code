@@ -23,21 +23,10 @@ extern digital_out Forklift;
 extern motor Rings;
 extern digital_out claw1;
 extern distance Stalker;
-extern signature Vision__SIG_1;
-extern signature Vision__SIG_2;
-extern signature Vision__SIG_3;
-extern signature Vision__SIG_4;
-extern signature Vision__SIG_5;
-extern signature Vision__SIG_6;
-extern signature Vision__SIG_7;
+extern signature Vision__MOGO_RED;
+extern signature Vision__MOGO_BLACK;
+extern signature Vision__MOGO_YELLOW;
 extern vision Vision;
-extern signature VisionBack__SIG_1;
-extern signature VisionBack__SIG_2;
-extern signature VisionBack__SIG_3;
-extern signature VisionBack__SIG_4;
-extern signature VisionBack__SIG_5;
-extern signature VisionBack__SIG_6;
-extern signature VisionBack__SIG_7;
 extern vision VisionBack;
 
 /**
