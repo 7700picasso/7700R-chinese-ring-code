@@ -26,6 +26,12 @@ digital_out Forklift = digital_out(Brain.ThreeWirePort.F);
 motor Rings = motor(PORT20, ratio6_1, false);
 digital_out claw1 = digital_out(Brain.ThreeWirePort.E);
 distance Stalker = distance(PORT7);
+/*vex-vision-config:begin*/
+vision Vision = vision (PORT19, 50);
+/*vex-vision-config:end*/
+/*vex-vision-config:begin*/
+vision VisionBack = vision (PORT12, 50);
+/*vex-vision-config:end*/
 
 // VEXcode generated functions
 // define variable for remote controller enable/disable

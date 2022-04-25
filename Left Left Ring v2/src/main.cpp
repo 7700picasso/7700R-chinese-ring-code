@@ -27,14 +27,13 @@
 // Lift                 motor         9               
 // Gyro                 inertial      10              
 // GPS                  gps           8               
-// DistFront            distance      15              
-// DistBack             distance      16              
-// DistClaw             distance      17              
 // MogoTilt             digital_out   C               
 // Forklift             digital_out   F               
 // Rings                motor         20              
 // claw1                digital_out   E               
 // Stalker              distance      7               
+// VisionBack           vision        12              
+// Vision               vision        19              
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
@@ -747,7 +746,7 @@ void auton() {
   Lift.spin(forward, -100, pct);
   //rushGoal(2.5,3000);
   unitDrive(2.3,1,3,1300);
-  unitDrive(-3, 0, 0, 6000); // back up 
+  unitDrive(-3, 0, 0, 8000); // back up. This may take a while if we're playing tuggle war. We have plenty of time at this point.
   unitDrive(3 / UNITSIZE); // scoot forward
   // ALLIANCE
   double facing = Gyro.rotation(deg);

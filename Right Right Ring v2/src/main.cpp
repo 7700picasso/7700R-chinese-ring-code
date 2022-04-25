@@ -35,6 +35,8 @@
 // Rings                motor         20              
 // claw1                digital_out   E               
 // Stalker              distance      7               
+// Vision               vision        19              
+// VisionBack           vision        12              
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"

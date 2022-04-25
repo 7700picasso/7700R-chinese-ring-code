@@ -18,14 +18,17 @@ motor rightmiddle = motor(PORT2, ratio18_1, false);
 motor Lift = motor(PORT9, ratio36_1, false);
 inertial Gyro = inertial(PORT10);
 gps GPS = gps(PORT8, 220.00, 50.00, mm, 90);
-distance DistFront = distance(PORT15);
-distance DistBack = distance(PORT16);
-distance DistClaw = distance(PORT17);
 digital_out MogoTilt = digital_out(Brain.ThreeWirePort.C);
 digital_out Forklift = digital_out(Brain.ThreeWirePort.F);
 motor Rings = motor(PORT20, ratio6_1, false);
 digital_out claw1 = digital_out(Brain.ThreeWirePort.E);
 distance Stalker = distance(PORT7);
+/*vex-vision-config:begin*/
+vision VisionBack = vision (PORT12, 50);
+/*vex-vision-config:end*/
+/*vex-vision-config:begin*/
+vision Vision = vision (PORT19, 50);
+/*vex-vision-config:end*/
 
 // VEXcode generated functions
 // define variable for remote controller enable/disable
