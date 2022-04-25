@@ -889,20 +889,24 @@ void auton() {
   Claw(CLAW_OPEN); // drop it
   // PLATFORM RIGHT RED
   turnTo(10);
-  unitArc(-0.5,0.25, 1); // back up
+  unitArc(-0.5,0.25, 1,true,false, 0,875,100,true,-1); // back up
   liftTo(-10,0); // lower lift
   turnTo(90,100,1000);
-  mogoTilt(TILT_OPEN); // drop it
+  // swap to claw
+  unitDrive(-0.75); // plz be a better place to drop it.
+  mogoTilt(TILT_OPEN); // drop it. PLEASE DONT LAND ON A RING. PLEEEEEEAAAAAASSSSSEEE
   unitDrive(0.333); // give clearance
   gyroturn(180); // face it
-  unitDrive(1,1,3,INF,87,true, 75, RED); // get it with claw
-  liftTo(75,0);
+  unitDrive(0.667,1,3,INF,87,true, 75, RED); // get it with claw
+  liftTo(70,0);
   driveTo(-0.75,2.5,false, false, 8, 0, 1000, 67); // go to platform
   Claw(CLAW_OPEN); // drop it
+  wait(200,msec);
   // TILT LEFT BLUE
   unitDrive(-0.3); // back up
   turnTo(90); // face it
   liftTo(-10,0); // lower lift
+  turnTo(-2,1.5);
   driveTo(-2,1.5,true, 2, 0, 3, 1000, 67); // tilt it
   turnTo(180); // face rings
   unitDrive(1.5); // rings

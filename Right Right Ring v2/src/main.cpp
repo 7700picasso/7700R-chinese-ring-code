@@ -69,6 +69,9 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
 #define RING_SPEED 92
+#define RED 1
+#define BLUE 2
+#define YELLOW 3
 
 // for red comments
 
@@ -338,8 +341,56 @@ void EndClaw(uint8_t clawID, double clawDist = 0, double error = 0) {
     }
   }
 }
+double getTrackSpeed(uint8_t trackingID = 0, bool back = false) {
+  if (trackingID > 0 && trackingID < 4) {
+    switch (trackingID) {
+      case RED:
+        if (back) {
+          VisionBack.takeSnapshot(Vision__MOGO_RED);
+        }
+        else {
+          Vision.takeSnapshot(Vision__MOGO_RED);
+        }
+        break;
+      case BLUE:
+        if (back) {
+          VisionBack.takeSnapshot(Vision__MOGO_BLUE);
+        }
+        else {
+          Vision.takeSnapshot(Vision__MOGO_BLUE);
+        }
+        break;
+      case YELLOW: 
+        if (back) {
+          VisionBack.takeSnapshot(Vision__MOGO_YELLOW);
+        }
+        else {
+          Vision.takeSnapshot(Vision__MOGO_YELLOW);
+        }
+        break;
+    }
+  }
+  else {
+    Brain.Screen.drawCircle(240, 136, 100,black);
+    return 0;
+  }
+  Brain.Screen.drawCircle(240, 136, 100,red);
+  double turnSpeed = 0;
+  bool exists = (!back && Vision.largestObject.exists && Vision.largestObject.width > 20) || (back && Vision.largestObject.exists && Vision.largestObject.width > 20);
+  if (exists) {
+    // get position
+    const double center = 158;
+    const double Kp = 0.3;
+    // Then get the turning speed with proportionality
+    const double centerX = back ? VisionBack.largestObject.centerX : Vision.largestObject.centerX;
+    turnSpeed = Kp * (centerX - center);
+    Brain.Screen.drawCircle(240, 136, 100,green);
+    //
+  }
+  return turnSpeed;
+}
 
-void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
+void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, uint8_t trackingID = 0, double accuracy = 0.25) {
 	double Kp = 10; // was previously 50/3
 	double Ki = 1.5; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
@@ -368,6 +419,7 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
     sum = sum * decay + error;
     speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
     speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
+    getTrackSpeed(trackingID, endClaw == 2);
     drive(speed, speed, 10);
     olderror = error;
     isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
