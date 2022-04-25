@@ -339,17 +339,32 @@ void EndClaw(uint8_t clawID, double clawDist = 0, double error = 0) {
   }
 }
 
-double getTrackSpeed(uint8_t trackingID = 0) {
+double getTrackSpeed(uint8_t trackingID = 0, bool back = false) {
   if (trackingID > 0 && trackingID < 4) {
     switch (trackingID) {
       case RED:
-        Vision.takeSnapshot(Vision__MOGO_RED);
+        if (back) {
+          VisionBack.takeSnapshot(Vision__MOGO_RED);
+        }
+        else {
+          Vision.takeSnapshot(Vision__MOGO_RED);
+        }
         break;
       case BLUE:
-        Vision.takeSnapshot(Vision__MOGO_BLUE);
+        if (back) {
+          VisionBack.takeSnapshot(Vision__MOGO_BLUE);
+        }
+        else {
+          Vision.takeSnapshot(Vision__MOGO_BLUE);
+        }
         break;
       case YELLOW: 
-        Vision.takeSnapshot(Vision__MOGO_YELLOW);
+        if (back) {
+          VisionBack.takeSnapshot(Vision__MOGO_YELLOW);
+        }
+        else {
+          Vision.takeSnapshot(Vision__MOGO_YELLOW);
+        }
         break;
     }
   }
@@ -359,12 +374,14 @@ double getTrackSpeed(uint8_t trackingID = 0) {
   }
   Brain.Screen.drawCircle(240, 136, 100,red);
   double turnSpeed = 0;
-  if (Vision.largestObject.exists && Vision.largestObject.width > 20) {
+  bool exists = (!back && Vision.largestObject.exists && Vision.largestObject.width > 20) || (back && Vision.largestObject.exists && Vision.largestObject.width > 20);
+  if (exists) {
     // get position
     const double center = 158;
     const double Kp = 0.3;
     // Then get the turning speed with proportionality
-    turnSpeed = Kp * (Vision.largestObject.centerX - center);
+    const double centerX = back ? VisionBack.largestObject.centerX : Vision.largestObject.centerX;
+    turnSpeed = Kp * (centerX - center);
     Brain.Screen.drawCircle(240, 136, 100,green);
     //
   }
@@ -402,7 +419,7 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
     doThePIDThing
     speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
 
-    turnSpeed = (error - clawDist < 48 && error - clawDist > 0) * getTrackSpeed(trackingID); // follow mogo if you want to
+    turnSpeed = (error - clawDist < 48 && error - clawDist > 0) * (endClaw == 2 ? -1 : 1) * getTrackSpeed(trackingID, endClaw == 2); // follow mogo if you want to
 
     drive(speed + turnSpeed, speed - turnSpeed, 10);
     olderror = error;
@@ -632,7 +649,7 @@ void balance() {
 	}
 }
 
-void gyroturn(double target, double maxSpeed = SPEED_CAP, uint32_t maxTime = 1500, double accuracy = 1.25) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
+void gyroturn(double target, double maxSpeed = 87.5, uint32_t maxTime = 1500, double accuracy = 1.25) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
   double Kp = 0.6;
   double Ki = 0;
   double Kd = 5;
@@ -656,10 +673,10 @@ void gyroturn(double target, double maxSpeed = SPEED_CAP, uint32_t maxTime = 150
   }
 }
 
-void turnTo(double target, double maxSpeed = 75, double maxTime = 1500, double accuracy = 1.25) {
+void turnTo(double target, double maxSpeed = 87.5, double maxTime = 1500, double accuracy = 1.25) {
   gyroturn(mod(target - Gyro.rotation(degrees) - 180, 360) - 180, maxSpeed, maxTime, accuracy);
 }
-void pointAt(double x2, double y2, bool Reverse = false, uint32_t maxSpeed = 75, uint32_t maxTime = 1500, double x1 = GPS.yPosition(inches), double y1 = -GPS.xPosition(inches), double accuracy = 1.25) { 
+void pointAt(double x2, double y2, bool Reverse = false, uint32_t maxSpeed = 87.5, uint32_t maxTime = 1500, double x1 = GPS.yPosition(inches), double y1 = -GPS.xPosition(inches), double accuracy = 1.25) { 
 	// point towards targetnss 
   x2 *= UNITSIZE, y2 *= UNITSIZE;
 	double target = degToTarget(x1, y1, x2, y2, Reverse, Gyro.rotation(degrees)); // I dont trust the gyro for finding the target, and i dont trst the gps with spinning
@@ -847,20 +864,22 @@ void auton() {
   unitDrive(1.2,1,3,INF,100,0,0,RED); // claw it
   // platform it
   liftTo(70,0); // raise lift
-  driveTo(0.5,2.5,0,0,6,0,1500,67); // go there
+  driveTo(0.65,2.5,0,0,6,0,1500,67); // go there
   Claw(CLAW_OPEN); // drop it
   liftDeg(10,0); // raise lift
   wait(200,msec); // dont fall over lol
   // GET RIGHT YELLOW
-  turnTo(-20);
-  liftTo(-10,0);
+  turnTo(-20,100);
   unitArc(-1.5, 1,0.25,true,false,0,1000); // back up + align
+  liftTo(-10,0);
   turnTo(-180); // face it
-  driveTo(1.5,0,false,1,0,3,2000, 100, false, 0, YELLOW); // claw it
+  driveTo(0.5,1); // for accuracy
+  pointAt(1.5,0,false); // facing it once. 
+  driveTo(1.5, 0, false, 1, 0, 3, 2000, 100, false, 0, YELLOW); // facing it twice. Claw it
   driveTo(1.5,-1.5); // claw it
   // TILT RIGHT RED
   turnTo(-90);
-  unitDrive(-0.5,2,1,1000,50); // tilt it
+  unitDrive(-0.75,2,1,1000,50); // tilt it
   liftTo(15,0);
   turnTo(0); // face rings
   unitDrive(1.5,0,0,INF,67); // rings
@@ -872,11 +891,11 @@ void auton() {
   turnTo(10);
   unitArc(-0.5,0.25, 1); // back up
   liftTo(-10,0); // lower lift
-  turnTo(90);
+  turnTo(90,100,1000);
   mogoTilt(TILT_OPEN); // drop it
   unitDrive(0.333); // give clearance
   gyroturn(180); // face it
-  unitDrive(1.6,1,3,INF,87,true, 75, RED); // get it with claw
+  unitDrive(1,1,3,INF,87,true, 75, RED); // get it with claw
   liftTo(75,0);
   driveTo(-0.75,2.5,false, false, 8, 0, 1000, 67); // go to platform
   Claw(CLAW_OPEN); // drop it
@@ -897,8 +916,8 @@ void auton() {
   driveTo(2,1.75,true);
   // ALIGN FOR BALANCE
   //turnTo(180); // face the wall
-  driveTo(2,-1,false,0,0,0,2000,100,false,0,0,2); // go mostly there
-  driveTo(2,-2,false,0,0,0,1000,67); // go there 
+  driveTo(2.333,-1,false,0,0,0,2000,100,false,0,0,2); // go mostly there
+  driveTo(2.333,-2,false,0,0,0,1000,67); // go there 
   turnTo(180);
   //unitDrive(3.75,false, 0,2000);
   unitArc(1.2814391087/*pi / 4*/, 1, 7 / 31); // parallel parking moment
