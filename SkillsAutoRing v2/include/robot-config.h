@@ -28,6 +28,14 @@ extern signature Vision__SIG_5;
 extern signature Vision__SIG_6;
 extern signature Vision__SIG_7;
 extern vision Vision;
+extern signature VisionBack__SIG_1;
+extern signature VisionBack__SIG_2;
+extern signature VisionBack__SIG_3;
+extern signature VisionBack__SIG_4;
+extern signature VisionBack__SIG_5;
+extern signature VisionBack__SIG_6;
+extern signature VisionBack__SIG_7;
+extern vision VisionBack;
 
 /**
  * Used to initialize code/tasks/devices added using tools in VEXcode Pro.

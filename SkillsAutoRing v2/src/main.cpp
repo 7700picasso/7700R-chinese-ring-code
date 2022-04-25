@@ -33,6 +33,7 @@
 // Rings                motor         20              
 // claw1                digital_out   E               
 // Vision               vision        19              
+// VisionBack           vision        12              
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
@@ -591,7 +592,7 @@ void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, u
 	brakeDrive(); // then stop
 }
 
-void balance(bool self = true) { // WIP
+void balance() {
   Brain.Screen.clearScreen();
   //double Kp = 2;
   //double Kt = 0.15; // constant for tip counts. This acts like Ki.
@@ -631,8 +632,8 @@ void balance(bool self = true) { // WIP
 	}
 }
 
-void gyroturn(double target, double maxSpeed = SPEED_CAP, uint32_t maxTime = 1300, double accuracy = 1.25) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
-  double Kp = 0.8;
+void gyroturn(double target, double maxSpeed = SPEED_CAP, uint32_t maxTime = 1500, double accuracy = 1.25) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
+  double Kp = 0.6;
   double Ki = 0;
   double Kd = 5;
   double decay = 0; // integral decay
@@ -655,10 +656,10 @@ void gyroturn(double target, double maxSpeed = SPEED_CAP, uint32_t maxTime = 130
   }
 }
 
-void turnTo(double target, double maxSpeed = 100, double maxTime = 1000, double accuracy = 1.25) {
+void turnTo(double target, double maxSpeed = 75, double maxTime = 1500, double accuracy = 1.25) {
   gyroturn(mod(target - Gyro.rotation(degrees) - 180, 360) - 180, maxSpeed, maxTime, accuracy);
 }
-void pointAt(double x2, double y2, bool Reverse = false, uint32_t maxSpeed = SPEED_CAP, uint32_t maxTime = 1000, double x1 = GPS.yPosition(inches), double y1 = -GPS.xPosition(inches), double accuracy = 1.25) { 
+void pointAt(double x2, double y2, bool Reverse = false, uint32_t maxSpeed = 75, uint32_t maxTime = 1500, double x1 = GPS.yPosition(inches), double y1 = -GPS.xPosition(inches), double accuracy = 1.25) { 
 	// point towards targetnss 
   x2 *= UNITSIZE, y2 *= UNITSIZE;
 	double target = degToTarget(x1, y1, x2, y2, Reverse, Gyro.rotation(degrees)); // I dont trust the gyro for finding the target, and i dont trst the gps with spinning
@@ -679,7 +680,7 @@ vex::thread POS(printPos);*/
 //                                                        if this runs for 4.3 billion msecs, then skills is broken, and our battery is magical v
 void driveTo(double x2, double y2, bool Reverse = false, uint8_t endClaw = false, double offset = 0, double clawDist = 6, uint32_t maxTime = 4000, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 67, uint8_t trackingID = 0, double accuracy = 0.25) {
 	// get positional data
-  pointAt(x2, y2, Reverse, 100);
+  pointAt(x2, y2, Reverse, 75);
   double x1 = GPS.yPosition(inches), y1 = -GPS.xPosition(inches);
   x2 *= UNITSIZE, y2 *= UNITSIZE;
   //x1 = -GPS.yPosition(inches), y1 = GPS.xPosition(inches);
@@ -828,15 +829,16 @@ void auton() {
   turnTo(20,100,1500); // fix direction
   unitArc(1.25,1,0.43); // curve to face the rings
   unitDrive(0.75);
-  turnTo(0);
+  turnTo(-5);
   unitDrive(1.667,false,0,875); // go into platform
   Lift.spin(forward,-100,percent);
-  turnTo(10);
+  wait(400,msec);
   Claw(CLAW_OPEN); // drop it
-  liftDeg(10,0); // raise lift a bit
+  turnTo(20);
+  liftTo(70,0); // raise lift a bit
   wait(200,msec);
   // PLATFORM LEFT RED
-  unitArc(-1,0.75,1); // back up
+  unitArc(-pi / 4, 0.3, 1); // back up
   liftTo(-10,0); // lower lift
   mogoTilt(TILT_OPEN); // drop it
   unitDrive(0.333); // leave clearance
@@ -845,26 +847,26 @@ void auton() {
   unitDrive(1.2,1,3,INF,100,0,0,RED); // claw it
   // platform it
   liftTo(70,0); // raise lift
-  driveTo(0,2.5,0,0,0,0,2000,67); // go there
+  driveTo(0.5,2.5,0,0,6,0,1500,67); // go there
   Claw(CLAW_OPEN); // drop it
   liftDeg(10,0); // raise lift
   wait(200,msec); // dont fall over lol
   // GET RIGHT YELLOW
-  liftDeg(10,0);
   turnTo(-20);
   liftTo(-10,0);
-  unitArc(-1.5, 1,0.25,true, false, 0,1000); // back up + align
+  unitArc(-1.5, 1,0.25,true,false,0,1000); // back up + align
   turnTo(-180); // face it
-  driveTo(1.5,0,false,1,0,3,2000, 100, true, 15, YELLOW); // claw it
+  driveTo(1.5,0,false,1,0,3,2000, 100, false, 0, YELLOW); // claw it
   driveTo(1.5,-1.5); // claw it
   // TILT RIGHT RED
   turnTo(-90);
-  unitDrive(-0.5,2,3,1000,50); // tilt it
+  unitDrive(-0.5,2,1,1000,50); // tilt it
+  liftTo(15,0);
   turnTo(0); // face rings
   unitDrive(1.5,0,0,INF,67); // rings
   // PLATFORM RIGHT YELLOW
   liftTo(70,0);
-  driveTo(1,2.5,false,false,12,0,1250,87); // go to platform
+  driveTo(0.75,2.5,false,false,12,0,1250,87); // go to platform
   Claw(CLAW_OPEN); // drop it
   // PLATFORM RIGHT RED
   turnTo(10);
@@ -874,26 +876,20 @@ void auton() {
   mogoTilt(TILT_OPEN); // drop it
   unitDrive(0.333); // give clearance
   gyroturn(180); // face it
-  unitDrive(1.6,1,4,INF,87,true, 75, RED); // get it with claw
+  unitDrive(1.6,1,3,INF,87,true, 75, RED); // get it with claw
   liftTo(75,0);
-  driveTo(-0.75,2.5,false, false, 12, 0, 1000, 67); // go to platform
+  driveTo(-0.75,2.5,false, false, 8, 0, 1000, 67); // go to platform
   Claw(CLAW_OPEN); // drop it
-  Controller1.Screen.setCursor(0, 0);
-  Controller1.Screen.print((timer::system() - startTime) * 0.001);
-  return;NOTE"dfhdslkfhsjkfhsdkafadshfkjlasdhflkdsahfkjsadhfjksadhfkjldsaghfkjladshfj";
-  return;NOTE"dfhdslkfhsjkfhsdkafadshfkjlasdhflkdsahfkjsadhfjksadhfkjldsaghfkjladshfj";
-  return;NOTE"dfhdslkfhsjkfhsdkafadshfkjlasdhflkdsahfkjsadhfjksadhfkjldsaghfkjladshfj";
-  return;NOTE"dfhdslkfhsjkfhsdkafadshfkjlasdhflkdsahfkjsadhfjksadhfkjldsaghfkjladshfj";
   // TILT LEFT BLUE
   unitDrive(-0.3); // back up
   turnTo(90); // face it
   liftTo(-10,0); // lower lift
-  driveTo(-2,2.5,true, 2, 0, 3, 1000, 67); // tilt it
+  driveTo(-2,1.5,true, 2, 0, 3, 1000, 67); // tilt it
   turnTo(180); // face rings
   unitDrive(1.5); // rings
   // CLAW MID
   turnTo(90); // face mid
-  driveTo(0,0, false, 1, -18, 21, INF, 75, true, 75, YELLOW); // claw it
+  driveTo(0,0, false, 1, -18, 21, INF, 75, true, 70, YELLOW); // claw it
   // FORK RIGHT BLUE
   unitArc(2.44, 0.6, 1); // first arc
   Fork(FORK_DOWN);
@@ -901,9 +897,11 @@ void auton() {
   driveTo(2,1.75,true);
   // ALIGN FOR BALANCE
   //turnTo(180); // face the wall
-  driveTo(2,-2); // go there
+  driveTo(2,-1,false,0,0,0,2000,100,false,0,0,2); // go mostly there
+  driveTo(2,-2,false,0,0,0,1000,67); // go there 
+  turnTo(180);
   //unitDrive(3.75,false, 0,2000);
-  unitArc(pi / 4, 1, 0.22); // parallel parking moment
+  unitArc(1.2814391087/*pi / 4*/, 1, 7 / 31); // parallel parking moment
   turnTo(-90); // point straight at the platform
   unitDrive(0.25,false, 0, 500); // Go to the platform
   // Lower the platform
@@ -911,6 +909,8 @@ void auton() {
   Fork(FORK_DOWN);
   unitDrive(1.4,3,12); // go up the platform
   balance();
+  Controller1.Screen.setCursor(0, 0);
+  Controller1.Screen.print((timer::system() - startTime) * 0.001);
 }
 
 //driver controls,dont change unless your jaehoon or sean
