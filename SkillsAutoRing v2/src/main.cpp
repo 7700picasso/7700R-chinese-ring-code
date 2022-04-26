@@ -920,16 +920,17 @@ void auton() {
   driveTo(0,0, false, 1, 0,3, INF, 75, true, 90, YELLOW); // claw it
   liftTo(90,0);
   // PLATFORM MID
-  turnTo(0);
-  unitDrive(1.75,false, 0,1300,75,true,90); // go to platform
-  liftTime(-100, 300); // lower lift. then wait
+  pointAt(0,2.5); // face it once
+	driveTo(0,1,875, false, 0,0,0, 1300,67);
+  liftTime(-100, 400,true); // lower lift. then wait
   Claw(CLAW_OPEN); // drop it
-  liftTime(0, 200); // stop lift. then wait
   unitDrive(-0.6667,false,0,1000,50); // back up
   // CLAW RIGHT BLUE
-  liftTo(-10,0); // lower lift
+  liftTo(20,0); // lower lift
   turnTo(90); // turn to the right
-  unitDrive(2);
+  driveTo(2,1);
+	liftTo(-10,0);
+	pointAt(1.25,2.5);
   driveTo(1.25, 2.5, false, 1, 8, 3, 1500, 50, false, 0, BLUE); // get it
   // ALIGN FOR BALANCE
   unitDrive(-DIAG);
