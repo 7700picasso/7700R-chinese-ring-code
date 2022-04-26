@@ -65,7 +65,7 @@ const double pi = 3.141592653589793238462643383279502884197169399375105820974944
 #define RAD * pi / 180
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
-#define RING_SPEED 100
+#define RING_SPEED 500/6
 #define RED 1
 #define BLUE 2
 #define YELLOW 3
@@ -870,22 +870,23 @@ void auton() {
   wait(200,msec); // dont fall over lol
   // GET RIGHT YELLOW
   turnTo(-20,100);
-  unitArc(-1.5, 1,0.25,true,false,0,1000); // back up + align
+  unitArc(-0.75, 1, 0.3,true,false,0,1000); // back up + "align"
   liftTo(-10,0);
-  turnTo(-180); // face it
-  driveTo(0.5,1); // for accuracy
-  pointAt(1.5,0,false); // facing it once. 
+  driveTo(0.5,1,true,false,0,0,1000,100,false,0,0,2); // for accuracy
+  pointAt(1.5, 0, false); // facing it once. 
   driveTo(1.5, 0, false, 1, 0, 3, 2000, 100, false, 0, YELLOW); // facing it twice. Claw it
   driveTo(1.5,-1.5); // claw it
   // TILT RIGHT RED
   turnTo(-90);
-  unitDrive(-0.75,2,1,1000,50); // tilt it
-  liftTo(15,0);
+  unitDrive(-0.75,2,1,1000,75,true, 20, RED); // tilt it
+  liftTo(20,0);
   turnTo(0); // face rings
   unitDrive(1.5,0,0,INF,67); // rings
   // PLATFORM RIGHT YELLOW
   liftTo(70,0);
+  pointAt(0.75,2.5);
   driveTo(0.75,2.5,false,false,12,0,1250,87); // go to platform
+  wait(200,msec);
   Claw(CLAW_OPEN); // drop it
   // PLATFORM RIGHT RED
   turnTo(10);
@@ -897,34 +898,47 @@ void auton() {
   mogoTilt(TILT_OPEN); // drop it. PLEASE DONT LAND ON A RING. PLEEEEEEAAAAAASSSSSEEE
   unitDrive(0.333); // give clearance
   gyroturn(180); // face it
-  unitDrive(0.667,1,3,INF,87,true, 75, RED); // get it with claw
+  unitDrive(0.75,1,3,INF,87,true, 75, RED); // get it with claw
+  // now platform it
   liftTo(70,0);
-  driveTo(-0.75,2.5,false, false, 8, 0, 1000, 67); // go to platform
+  pointAt(-0.67,2.5);
+  driveTo(-0.67, 2.5, false, false, 8, 0, 1000, 67); // go to platform
   Claw(CLAW_OPEN); // drop it
   wait(200,msec);
   // TILT LEFT BLUE
   unitDrive(-0.3); // back up
   turnTo(90); // face it
-  liftTo(-10,0); // lower lift
+  liftTo(20,0); // lower lift
   turnTo(-2,1.5);
-  driveTo(-2,1.5,true, 2, 0, 3, 1000, 67); // tilt it
+  driveTo(-2,1.5,true, 2,-12, 1, 1500, 67, false,0,BLUE); // tilt it
+  driveTo(-2,1.5,true);
   turnTo(180); // face rings
-  unitDrive(1.5); // rings
+  unitDrive(1.5,false,0,1500,50); // rings
   // CLAW MID
   turnTo(90); // face mid
-  driveTo(0,0, false, 1, -18, 21, INF, 75, true, 70, YELLOW); // claw it
-  // FORK RIGHT BLUE
-  unitArc(2.44, 0.6, 1); // first arc
-  Fork(FORK_DOWN);
-  driveTo(1.25, 2.5, false, 3, 8, 3,1000); // ƒork it
-  driveTo(2,1.75,true);
+  liftTo(-10,0);
+  driveTo(0,0, false, 1, 0,3, INF, 75, true, 90, YELLOW); // claw it
+  liftTo(90,0);
+  // PLATFORM MID
+  turnTo(0);
+  unitDrive(1.75,false, 0,1300,75,true,90); // go to platform
+  liftTime(-100, 300); // lower lift. then wait
+  Claw(CLAW_OPEN); // drop it
+  liftTime(0, 200); // stop lift. then wait
+  unitDrive(-0.6667,false,0,1000,50); // back up
+  // CLAW RIGHT BLUE
+  liftTo(-10,0); // lower lift
+  turnTo(90); // turn to the right
+  unitDrive(2);
+  driveTo(1.25, 2.5, false, 1, 8, 3, 1500, 50, false, 0, BLUE); // get it
   // ALIGN FOR BALANCE
+  unitDrive(-DIAG);
   //turnTo(180); // face the wall
   driveTo(2.333,-1,false,0,0,0,2000,100,false,0,0,2); // go mostly there
-  driveTo(2.333,-2,false,0,0,0,1000,67); // go there 
-  turnTo(180);
+  driveTo(2.333,-3,false,0,0,0,1000,67); // go there 
+  unitDrive(-0.1);
   //unitDrive(3.75,false, 0,2000);
-  unitArc(1.2814391087/*pi / 4*/, 1, 7 / 31); // parallel parking moment
+  //unitArc(1.2814391087/*pi / 4*/, 1, 7 / 31); // parallel parking moment
   turnTo(-90); // point straight at the platform
   unitDrive(0.25,false, 0, 500); // Go to the platform
   // Lower the platform
