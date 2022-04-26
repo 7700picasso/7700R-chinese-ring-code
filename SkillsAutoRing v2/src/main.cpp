@@ -69,7 +69,10 @@ const double pi = 3.141592653589793238462643383279502884197169399375105820974944
 #define RED 1
 #define BLUE 2
 #define YELLOW 3
-#define doThePIDThing sum = sum * decay + error; speed = Kp * error + Ki * sum + Kd * (error - olderror);
+
+#define doThePIDThing                                              \
+	sum = sum * decay + error;                                       \
+	speed = Kp * error + Ki * sum + Kd * (error - olderror);
 
 // for red comments
 
@@ -247,17 +250,16 @@ void coastDrive() {
   rightmiddle.setStopping(coast);
 }
 
-
 void liftDeg(double angle, int WT = -1, int speed = 100) {
   Lift.setVelocity(speed, percent);
   Lift.setStopping(hold);
-
-  Lift.spinFor(forward, 7 * angle, degrees, WT == -1);
   
   if (WT != -1) {
+		Lift.startSpinFor(forward, 7 * angle, degrees);
     wait(WT,msec);
   }
   else {
+		Lift.spinFor(forward, 7 * angle, degrees, true);
     Lift.stop(hold);
   }                                            //more math 
 }
@@ -265,13 +267,13 @@ void liftDeg(double angle, int WT = -1, int speed = 100) {
 void liftTo(double angle, int WT = -1, int8_t speed = 100) {
   Lift.setVelocity(speed, percent);
   Lift.setStopping(hold);
-
-  Lift.spinFor(forward, 7 * angle - Lift.position(degrees), degrees, WT == -1);
   
   if (WT != -1) {
+		Lift.startSpinTo(forward, 7 * angle, degrees);
     wait(WT,msec);
   }
   else {
+		Lift.spinTo(forward, 7 * angle, degrees, true);
     Lift.stop(hold);
   }
 }
@@ -393,6 +395,7 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
 	double Ki = 1.5; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
+	bool lifted = false;
 	
 	target *= UNITSIZE; // convert UNITS to inches
 	
@@ -409,9 +412,8 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
   rightmiddle.setPosition(0, rev);
 	 
   volatile double sum = 0;
-  uint32_t startTime = vex::timer::system();
+	uint32_t startTime = vex::timer::system();
   bool isOpen;
-  int ticks = 0;
 
   while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
     // did this late at night but this while is important 
@@ -425,10 +427,10 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
     olderror = error;
     isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
     EndClaw(endClaw, clawDist, error);
-    if (raiseMogo && !isOpen && (error + 6 < clawDist) && Lift.position(degrees) < 10) {
+    if (raiseMogo && (!isOpen && (error + 6 < clawDist) || endClaw != 1) && !lifted) {
       liftTo(mogoHeight,0);
+			lifted = true;
     }
-    ticks++;
   }
 	brakeDrive();
   EndClaw(endClaw);
@@ -456,6 +458,7 @@ void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc 
   volatile double sum = 0;
   uint32_t startTime = vex::timer::system();
   bool isOpen;
+	bool lifted = false;
 	 
   while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
     // did this late at night but this while is important 
@@ -468,8 +471,9 @@ void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc 
     olderror = error;
     isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
     EndClaw(endClaw,clawDist,error);
-    if (raiseMogo && !isOpen && (error + 6 < clawDist) && Lift.position(degrees) < 10) {
+    if (raiseMogo && (!isOpen && (error + 6 < clawDist) || endClaw != 1) && !lifted) {
       liftTo(mogoHeight,0);
+			lifted = true;
     }
   }
 	brakeDrive();
@@ -498,6 +502,7 @@ void arcTurn(double target, double propLeft=1, double propRight=1, bool endClaw 
   volatile double sum = 0;
   uint32_t startTime = vex::timer::system();
   bool isOpen;
+	bool lifted = false;
 	 
   while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
     error = target - dir(Gyro.rotation(deg)); // the error gets smaller when u reach ur target
@@ -507,8 +512,9 @@ void arcTurn(double target, double propLeft=1, double propRight=1, bool endClaw 
     olderror = error;
     isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
     EndClaw(endClaw,clawDist,error);
-    if (raiseMogo && !isOpen && (error + 6 < clawDist) && Lift.position(degrees) < 10) {
+    if (raiseMogo && (!isOpen && (error + 6 < clawDist) || endClaw != 1) && !lifted) {
       liftTo(mogoHeight,0);
+			lifted = true;
     }
   }
 	brakeDrive();
@@ -840,7 +846,7 @@ void auton() {
   // CLAW LEFT YELLOW
   unitArc(1,1,0); // face the goal
   Lift.spin(forward,-100,percent); // lower lift
-  unitDrive(2.1,1,3,3000,87,80,5,YELLOW); // get it
+  unitDrive(2.1,1,3,1500,87,true,80,YELLOW); // get it
   liftTo(75,0); // raise lift
   // PLATFORM LEFT YELLOW
   turnTo(20,100,1500); // fix direction
@@ -874,7 +880,7 @@ void auton() {
   liftTo(-10,0);
   driveTo(0.5,1,true,false,0,0,1000,100,false,0,0,2); // for accuracy
   pointAt(1.5, 0, false); // facing it once. 
-  driveTo(1.5, 0, false, 1, 0, 3, 2000, 100, false, 0, YELLOW); // facing it twice. Claw it
+  driveTo(1.5, 0, false, 1, 0, 3, 1300, 100, false, 0, YELLOW); // facing it twice. Claw it
   driveTo(1.5,-1.5); // claw it
   // TILT RIGHT RED
   turnTo(-90);
@@ -906,49 +912,44 @@ void auton() {
   Claw(CLAW_OPEN); // drop it
   wait(200,msec);
   // TILT LEFT BLUE
-  unitDrive(-0.3); // back up
+  unitDrive(-0.25); // back up
   turnTo(90); // face it
-  liftTo(20,0); // lower lift
-  turnTo(-2,1.5);
-  driveTo(-2,1.5,true, 2,-12, 1, 1500, 67, false,0,BLUE); // tilt it
-  driveTo(-2,1.5,true);
+  turnTo(-2,1.5); // face it once
+  driveTo(-2,1.5,true, 2,-12,1,1500,67,true,20,BLUE); // tilt it
+  unitDrive(-2 - GPS.yPosition(inches) / UNITSIZE,false,0,750,true,20); // back up
   turnTo(180); // face rings
-  unitDrive(1.5,false,0,1500,50); // rings
+  unitDrive(1.5,false,0,1500,50,true,20); // rings
   // CLAW MID
-  turnTo(90); // face mid
   liftTo(-10,0);
   driveTo(0,0, false, 1, 0,3, INF, 75, true, 90, YELLOW); // claw it
   liftTo(90,0);
   // PLATFORM MID
   pointAt(0,2.5); // face it once
-	driveTo(0,1,875, false, 0,0,0, 1300,67);
-  liftTime(-100, 400,true); // lower lift. then wait
+	driveTo(0,1.875, false, 0,0,0, 1300,67); // go to platform
+	Lift.setTorqueLimit(0,Nm); // this should make the lift drop
+  liftTime(-100, 333,true); // lower lift. then wait
+	Lift.setTorqueLimit(2.1,Nm); // this should make the lift drop
   Claw(CLAW_OPEN); // drop it
   unitDrive(-0.6667,false,0,1000,50); // back up
   // CLAW RIGHT BLUE
   liftTo(20,0); // lower lift
-  turnTo(90); // turn to the right
-  driveTo(2,1);
-	liftTo(-10,0);
-	pointAt(1.25,2.5);
-  driveTo(1.25, 2.5, false, 1, 8, 3, 1500, 50, false, 0, BLUE); // get it
+  driveTo(2,1); // first movement
+	liftTo(-10,0); // lower lift
+	pointAt(1.25, 2.5); // face it once
+  driveTo(1.25, 2.5, false, 1, 5, 2, 1500, 50, false, 0, BLUE); // face it twice. get it
   // ALIGN FOR BALANCE
-  unitDrive(-DIAG);
-  //turnTo(180); // face the wall
-  driveTo(2.333,-1,false,0,0,0,2000,100,false,0,0,2); // go mostly there
-  driveTo(2.333,-3,false,0,0,0,1000,67); // go there 
-  unitDrive(-0.1);
-  //unitDrive(3.75,false, 0,2000);
-  //unitArc(1.2814391087/*pi / 4*/, 1, 7 / 31); // parallel parking moment
-  turnTo(-90); // point straight at the platform
-  unitDrive(0.25,false, 0, 500); // Go to the platform
+  unitDrive(-1); // back up
+  driveTo(2,-2,false,0,0,0,2000,100,true,67); // go mostly there
+  driveTo(2,-3,false,0,0,0,500); // hit wall to align
+  unitDrive(-0.1); // back up
+  gyroturn(90); // point straight at the platform
   // Lower the platform
-  liftTo(30,500);
-  Fork(FORK_DOWN);
-  unitDrive(1.4,3,12); // go up the platform
-  balance();
-  Controller1.Screen.setCursor(0, 0);
+  liftTo(-10,500); // lower lift
+	Lift.setTorqueLimit(0,Nm); // bye bye torque
+  unitDrive(1.4); // go up the platform
+	Controller1.Screen.setCursor(0, 0);
   Controller1.Screen.print((timer::system() - startTime) * 0.001);
+  balance();
 }
 
 //driver controls,dont change unless your jaehoon or sean
