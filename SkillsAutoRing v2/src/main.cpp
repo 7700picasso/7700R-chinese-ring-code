@@ -65,7 +65,7 @@ const double pi = 3.141592653589793238462643383279502884197169399375105820974944
 #define RAD * pi / 180
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
-#define RING_SPEED 500/6
+#define RING_SPEED 87
 #define RED 1
 #define BLUE 2
 #define YELLOW 3
@@ -269,11 +269,11 @@ void liftTo(double angle, int WT = -1, int8_t speed = 100) {
   Lift.setStopping(hold);
   
   if (WT != -1) {
-		Lift.startSpinTo(forward, 7 * angle, degrees);
+		Lift.startSpinFor(forward, 7 * angle - Lift.position(deg), degrees);
     wait(WT,msec);
   }
   else {
-		Lift.spinTo(forward, 7 * angle, degrees, true);
+		Lift.spinFor(forward, 7 * angle - Lift.position(deg), degrees, true);
     Lift.stop(hold);
   }
 }
@@ -682,11 +682,14 @@ void gyroturn(double target, double maxSpeed = 87.5, uint32_t maxTime = 1500, do
 void turnTo(double target, double maxSpeed = 87.5, double maxTime = 1500, double accuracy = 1.25) {
   gyroturn(mod(target - Gyro.rotation(degrees) - 180, 360) - 180, maxSpeed, maxTime, accuracy);
 }
-void pointAt(double x2, double y2, bool Reverse = false, uint32_t maxSpeed = 87.5, uint32_t maxTime = 1500, double x1 = GPS.yPosition(inches), double y1 = -GPS.xPosition(inches), double accuracy = 1.25) { 
+void pointAt(double x2, double y2, bool Reverse = false, uint32_t maxSpeed = 87.5, uint32_t maxTime = 1300, double x1 = GPS.yPosition(inches), double y1 = -GPS.xPosition(inches), double accuracy = 1.25) { 
 	// point towards targetnss 
   x2 *= UNITSIZE, y2 *= UNITSIZE;
 	double target = degToTarget(x1, y1, x2, y2, Reverse, Gyro.rotation(degrees)); // I dont trust the gyro for finding the target, and i dont trst the gps with spinning
-	gyroturn(target,maxSpeed,maxTime,accuracy);
+	if (fabs(target) < 2.5) {
+    return;
+  }
+  gyroturn(target,maxSpeed,maxTime,accuracy);
 }
 bool runningAuto = 0;
 /*void printPos() {
@@ -712,81 +715,6 @@ void driveTo(double x2, double y2, bool Reverse = false, uint8_t endClaw = false
   // volatile double distSpeed = 100;
   double target = (1 - Reverse * 2) * (sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)) - offset);
   unitDrive(target / UNITSIZE, endClaw, clawDist, maxTime, maxSpeed, raiseMogo, mogoHeight, trackingID, accuracy);
-
-  /*return; // end cuz everything after this is experimental.
-
-  // experimental
-
-  double Kp = 10; // was previously 10
-  double Ki = 2; // to increase speed if its taking too long.
-  double Kd = 20; // was previously 20.0
-  double decay = 0.5; // integral decay
-  
-  volatile double sum = 0;
-          
-  volatile double speed;
-  volatile double error = target;
-  volatile double olderror = error;
-
-  volatile double dirError = 0;
-  volatile double oldDirError = dirError;
-  volatile double dirSpeed = 0;
-  volatile double dirSum = 0;
-  volatile double oldDir = Gyro.rotation(degrees);
-  volatile double oldL = leftmiddle.position(rev) * pi * Diameter;
-  volatile double oldR = rightmiddle.position(rev) * pi * Diameter;
-
-  double dirKp = 1.1; // was previously 10
-  double dirKi = 0.2; // to increase speed if its taking too long.
-  double dirKd = 1.25; // was previously 20.0
-  double dirDecay = 0.5; // integral decay
-     
-  leftDrive1.setPosition(0, rev);
-  leftDrive2.setPosition(0, rev);
-  leftmiddle.setPosition(0, rev);
-  rightDrive1.setPosition(0, rev);
-  rightDrive2.setPosition(0, rev);
-  rightmiddle.setPosition(0, rev);
-     
-  while(fabs(error) > accuracy || fabs(speed) > 10) {
-    bool overShot = fabs(degToTarget(x1, y1, x2, y2, Reverse)) > 100;
-    target = -((Reverse + overShot) % 2) * sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)); // the error gets smaller when u reach ur target
-    dirError = degToTarget(x1, y1, x2, y2, (Reverse + overShot) % 2);
-    sum = sum * decay + error;
-    dirSum = dirSum * dirDecay + dirError;
-
-    speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
-    dirSpeed = dirKp * dirError + dirKi * dirSum + dirKd * (dirError - oldDirError);
-    drive(speed + dirSpeed, speed - dirSpeed, 10);
-    olderror = error;
-    oldDirError = dirError;
-    
-    // r = (∆L + ∆R) / 2(θ - θ')
-    // P' = (x + r * ( sin (θ') - sin (θ) ), y + r * ( cos (θ') - cos (θ) ) )
-
-    // to ensure nothing is undefined and stuff
-
-    double L = leftmiddle.position(rev) * pi * Diameter;
-    double R = rightmiddle.position(rev) * pi * Diameter;
-    double dir = Gyro.rotation(degrees);
-    if (dir == oldDir) {
-      x1 += (olderror - error) * cos(dir),
-      y1 += (olderror - error) * sin(dir);
-    }
-    else {
-      double r = (L - oldL + R - oldR) / (oldDir - dir) / 2;
-      x1 += r * (sin(dir) - sin(oldDir));
-      y1 += r * (cos(dir) - cos(oldDir));
-    }
-    oldDir = dir;
-    oldL = L;
-    oldR = R;
-
-    if (endClaw && error < 0 && claw.value()) { // close claw b4 it goes backwards.
-      Claw(!CLAW_OPEN);
-    }
-  }
-  brakeDrive();*/
 }
 
 void auton() {
@@ -844,6 +772,21 @@ void auton() {
   unitDrive(0.75,false,0,1000,33); // get rings
   unitDrive(-0.25); // back up to get space
   // CLAW LEFT YELLOW
+    unitArc(1,1,0); // face the goal
+  Lift.spin(forward,-100,percent); // lower lift
+  unitDrive(2.1,1,3,1500,87,true,80,YELLOW); // get it
+  liftTo(75,0); // raise lift
+  // PLATFORM LEFT YELLOW
+  turnTo(20,100,1500); // fix direction
+  unitArc(1.25,1,0.43); // curve to face the rings
+  unitDrive(0.75);
+  turnTo(-5);
+  unitDrive(1.667,false,0,875); // go into platform
+  Lift.spin(forward,-100,percent);
+  wait(400,msec);
+  Claw(CLAW_OPEN); // drop it
+  turnTo(20);
+  liftTo(70,0); // raise lift a bit
   unitArc(1,1,0); // face the goal
   Lift.spin(forward,-100,percent); // lower lift
   unitDrive(2.1,1,3,1500,87,true,80,YELLOW); // get it
@@ -926,9 +869,7 @@ void auton() {
   // PLATFORM MID
   pointAt(0,2.5); // face it once
 	driveTo(0,1.875, false, 0,0,0, 1300,67); // go to platform
-	Lift.setTorqueLimit(0,Nm); // this should make the lift drop
   liftTime(-100, 333,true); // lower lift. then wait
-	Lift.setTorqueLimit(2.1,Nm); // this should make the lift drop
   Claw(CLAW_OPEN); // drop it
   unitDrive(-0.6667,false,0,1000,50); // back up
   // CLAW RIGHT BLUE
@@ -945,7 +886,7 @@ void auton() {
   gyroturn(90); // point straight at the platform
   // Lower the platform
   liftTo(-10,500); // lower lift
-	Lift.setTorqueLimit(0,Nm); // bye bye torque
+	Lift.setMaxTorque(0,Nm); // bye bye torque
   unitDrive(1.4); // go up the platform
 	Controller1.Screen.setCursor(0, 0);
   Controller1.Screen.print((timer::system() - startTime) * 0.001);

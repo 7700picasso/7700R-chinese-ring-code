@@ -65,7 +65,7 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define RAD * pi / 180
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
-#define RING_SPEED 92
+#define RING_SPEED 85
 
 // for red comments
 
