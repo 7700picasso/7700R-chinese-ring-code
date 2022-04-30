@@ -72,6 +72,9 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define RED 1
 #define BLUE 2
 #define YELLOW 3
+#define doThePIDThing                                              \
+	sum = sum * decay + error;                                       \
+	speed = Kp * error + Ki * sum + Kd * (error - olderror);
 
 // for red comments
 
@@ -391,7 +394,7 @@ void EndClaw(uint8_t clawID, double clawDist = 0, double error = 0) {
 }*/
 
 void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, uint8_t trackingID = 0, double accuracy = 0.25) {
-	double Kp = 10; // was previously 50/3
+	double Kp = 13; // was previously 50/3
 	double Ki = 1.5; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
@@ -733,37 +736,28 @@ void balance() { // WIP
   Brain.Screen.printAt(1, 150, "i am done ");
 }
 
-void gyroturn(double target, double &idealDir, double accuracy = 1.25) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
-  double Kp = 0.9; // was 2.0
-  double Ki = 0.05; // adds a bit less than 50% when there is 90° left.
-  double Kd = 5; // was 16.0
- 
-  double currentDir = Gyro.rotation(degrees);
-  double speed = 100;
-  double error = target;
-  double olderror = error;
+void gyroturn(double target, double maxSpeed = 87.5, uint32_t maxTime = 1500, double accuracy = 1.25) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
+  double Kp = 0.6;
+  double Ki = 0;
+  double Kd = 5;
+  double decay = 0; // integral decay
+	
+  volatile double sum = 0;
+  volatile double speed;
+  volatile double error = target;
+  volatile double olderror = error;
+  uint32_t startTime = vex::timer::system();
 
-  double lambda = 0.5; // exponential decay rate
+  target += Gyro.rotation(degrees);
 
-  double sum = 0;
-  
-  idealDir += target;
-  target = currentDir + idealDir - Gyro.rotation(degrees);
-  
-  while(fabs(error) > accuracy){ //fabs = absolute value while loop again
-    currentDir = Gyro.rotation(degrees);
-    error = target - currentDir; //error gets smaller closer you get,robot slows down
-    sum = sum * lambda + error;
-    speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
+  while ((fabs(error) > accuracy || fabs(speed) > 1) && vex::timer::system() - startTime < maxTime) { //fabs = absolute value while loop again
+    error = target - Gyro.rotation(degrees);; //error gets smaller closer you get,robot slows down
+    doThePIDThing
+    speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
     drive(speed, -speed, 10);
-    Brain.Screen.printAt(1, 40, "heading = %0.2f    degrees", currentDir); //math thing again,2 decimal places
     Brain.Screen.printAt(1, 60, "speed = %0.2f    degrees", speed);
-    //all ths print screen helps test to make sure gyro not broke
     olderror = error;
   }
-  brakeDrive();
-  currentDir = Gyro.rotation(degrees); //prints the gyro rotation degress
-  Brain.Screen.printAt(1, 40, "heading = %0.2f    degrees", currentDir);
 }
 
 void turnTo(double target, double accuracy = 1.25) {
@@ -795,9 +789,9 @@ void auton() {
   // SIDE
   Lift.spin(forward, -100, pct);
   //rushGoal(2.5,3000);
-  unitDrive(2, 1, 1, INF, 100); // get it
+  unitDrive(1.65, 1, 1, INF, 100); // get it
   // ALLIANCE
-  unitDrive(-1.2,false,0,INF,100,true,15);
+  unitDrive(-1.1,false,0,INF,100,true,15);
   turnTo(-90);
   unitDrive(-0.5, 2,3); // get it
   rings(true);

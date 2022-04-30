@@ -787,21 +787,6 @@ void auton() {
   Claw(CLAW_OPEN); // drop it
   turnTo(20);
   liftTo(70,0); // raise lift a bit
-  unitArc(1,1,0); // face the goal
-  Lift.spin(forward,-100,percent); // lower lift
-  unitDrive(2.1,1,3,1500,87,true,80,YELLOW); // get it
-  liftTo(75,0); // raise lift
-  // PLATFORM LEFT YELLOW
-  turnTo(20,100,1500); // fix direction
-  unitArc(1.25,1,0.43); // curve to face the rings
-  unitDrive(0.75);
-  turnTo(-5);
-  unitDrive(1.667,false,0,875); // go into platform
-  Lift.spin(forward,-100,percent);
-  wait(400,msec);
-  Claw(CLAW_OPEN); // drop it
-  turnTo(20);
-  liftTo(70,0); // raise lift a bit
   wait(200,msec);
   // PLATFORM LEFT RED
   unitArc(-pi / 4, 0.3, 1); // back up
@@ -822,7 +807,7 @@ void auton() {
   unitArc(-0.75, 1, 0.3,true,false,0,1000); // back up + "align"
   liftTo(-10,0);
   driveTo(0.5,1,true,false,0,0,1000,100,false,0,0,2); // for accuracy
-  pointAt(1.5, 0, false); // facing it once. 
+  //pointAt(1.5, 0, false); // facing it once. 
   driveTo(1.5, 0, false, 1, 0, 3, 1300, 100, false, 0, YELLOW); // facing it twice. Claw it
   driveTo(1.5,-1.5); // claw it
   // TILT RIGHT RED
@@ -857,7 +842,6 @@ void auton() {
   // TILT LEFT BLUE
   unitDrive(-0.25); // back up
   turnTo(90); // face it
-  turnTo(-2,1.5); // face it once
   driveTo(-2,1.5,true, 2,-12,1,1500,67,true,20,BLUE); // tilt it
   unitDrive(-2 - GPS.yPosition(inches) / UNITSIZE,false,0,750,true,20); // back up
   turnTo(180); // face rings
@@ -868,7 +852,7 @@ void auton() {
   liftTo(90,0);
   // PLATFORM MID
   pointAt(0,2.5); // face it once
-	driveTo(0,1.875, false, 0,0,0, 1300,67); // go to platform
+	driveTo(0,2, false, 0,0,0, 1300,67); // go to platform
   liftTime(-100, 333,true); // lower lift. then wait
   Claw(CLAW_OPEN); // drop it
   unitDrive(-0.6667,false,0,1000,50); // back up
