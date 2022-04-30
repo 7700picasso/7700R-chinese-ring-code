@@ -822,8 +822,8 @@ void driver() {
 
   while (true) {
     // drive control
-		int rstick=Controller1.Axis2.position();
-		int lstick=Controller1.Axis3.position();
+		int rstick = sgn(Controller1.Axis2.position()) * pow(fabs(Controller1.Axis2.position()), 2) / 10;
+		int lstick = sgn(Controller1.Axis3.position()) * pow(fabs(Controller1.Axis3.position()), 2) / 10;
 		drive(lstick, rstick,10);
 		int8_t tmp, ringSpeed = RING_SPEED;
     // mogoTilt controls
