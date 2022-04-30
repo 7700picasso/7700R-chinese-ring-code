@@ -66,6 +66,9 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
 #define RING_SPEED 85
+#define doThePIDThing                                              \
+	sum = sum * decay + error;                                       \
+	speed = Kp * error + Ki * sum + Kd * (error - olderror);
 
 // for red comments
 
@@ -340,7 +343,7 @@ void EndClaw(uint8_t clawID, double clawDist = 0, double error = 0) {
 }
 
 void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
-	double Kp = 10; // was previously 50/3
+	double Kp = 13; // was previously 50/3
 	double Ki = 1.5; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
@@ -362,7 +365,7 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
   uint32_t startTime = vex::timer::system();
   bool isOpen;
 
-  while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
+  while((fabs(error) > accuracy || fabs(speed) > 10) && (vex::timer::system() - startTime < maxTime || fabs(error) > 18)) {
     // did this late at night but this while is important 
     error = target - wheelRevs(0) * Diameter * pi; //the error gets smaller when u reach ur target
     sum = sum * decay + error;
@@ -683,37 +686,28 @@ void balance() { // WIP
   Brain.Screen.printAt(1, 150, "i am done ");
 }
 
-void gyroturn(double target, double &idealDir, double accuracy = 1.25) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
-  double Kp = 0.9; // was 2.0
-  double Ki = 0.05; // adds a bit less than 50% when there is 90° left.
-  double Kd = 5; // was 16.0
- 
-  double currentDir = Gyro.rotation(degrees);
-  double speed = 100;
-  double error = target;
-  double olderror = error;
+void gyroturn(double target, double maxSpeed = 87.5, uint32_t maxTime = 1500, double accuracy = 1.25) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
+  double Kp = 0.6;
+  double Ki = 0;
+  double Kd = 5;
+  double decay = 0; // integral decay
+	
+  volatile double sum = 0;
+  volatile double speed;
+  volatile double error = target;
+  volatile double olderror = error;
+  uint32_t startTime = vex::timer::system();
 
-  double lambda = 0.5; // exponential decay rate
+  target += Gyro.rotation(degrees);
 
-  double sum = 0;
-  
-  idealDir += target;
-  target = currentDir + idealDir - Gyro.rotation(degrees);
-  
-  while(fabs(error) > accuracy){ //fabs = absolute value while loop again
-    currentDir = Gyro.rotation(degrees);
-    error = target - currentDir; //error gets smaller closer you get,robot slows down
-    sum = sum * lambda + error;
-    speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
+  while ((fabs(error) > accuracy || fabs(speed) > 1) && vex::timer::system() - startTime < maxTime) { //fabs = absolute value while loop again
+    error = target - Gyro.rotation(degrees);; //error gets smaller closer you get,robot slows down
+    doThePIDThing
+    speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
     drive(speed, -speed, 10);
-    Brain.Screen.printAt(1, 40, "heading = %0.2f    degrees", currentDir); //math thing again,2 decimal places
     Brain.Screen.printAt(1, 60, "speed = %0.2f    degrees", speed);
-    //all ths print screen helps test to make sure gyro not broke
     olderror = error;
   }
-  brakeDrive();
-  currentDir = Gyro.rotation(degrees); //prints the gyro rotation degress
-  Brain.Screen.printAt(1, 40, "heading = %0.2f    degrees", currentDir);
 }
 
 void turnTo(double target, double accuracy = 1.25) {
@@ -737,23 +731,18 @@ void auton() {
 
 	Claw(CLAW_OPEN); // open claw
   mogoTilt(TILT_OPEN);
-  Fork(!FORK_DOWN); // forklift folds up
-
-	while (Gyro.isCalibrating()) { // dont start until gyro and GPS are calibrated
-		wait(10, msec);
-  }
+  //Fork(!FORK_DOWN); // forklift folds up
   // SIDE
   Lift.spin(forward, -100, pct);
-  //rushGoal(2.5,3000);
-  unitDrive(2.3,1,3,1300);
-  unitDrive(-3, 0, 0, 8000); // back up. This may take a while if we're playing tuggle war. We have plenty of time at this point.
-  unitDrive(3 / UNITSIZE); // scoot forward
+  unitDrive(1.7,1,1,1000);
+  unitDrive(-2, 0, 0, 1500); // back up. This may take a while if we're playing tuggle war. We have plenty of time at this point.
+  Gyro.resetRotation();
   // ALLIANCE
-  double facing = Gyro.rotation(deg);
-  gyroturn(-90,facing);
-  unitDrive(-0.75, 2, 3,750,67); // tilt alliance goal
-  // RINGS
+  gyroturn(-83);
+  unitDrive(-0.75, 2, 3,750,30,true,30); // tilt alliance goal
   rings(true); // start intake
+  liftTo(30,0);
+  // RINGS
   unitDrive(1, false, 0, INF, 20); // ring-around a-rosie a stick full of donuts 
 }
 

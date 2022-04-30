@@ -68,7 +68,7 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define RAD * pi / 180
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
-#define RING_SPEED 85
+#define RING_SPEED 76
 #define RED 1
 #define BLUE 2
 #define YELLOW 3
@@ -795,16 +795,16 @@ void auton() {
   // SIDE
   Lift.spin(forward, -100, pct);
   //rushGoal(2.5,3000);
-  unitDrive(2.3, 1, 8, INF, 100, true, 15); // get it
+  unitDrive(2, 1, 1, INF, 100); // get it
   // ALLIANCE
-  unitDrive(-1.2);
+  unitDrive(-1.2,false,0,INF,100,true,15);
   turnTo(-90);
   unitDrive(-0.5, 2,3); // get it
   rings(true);
   // RINGS
   turnTo(0);
   unitDrive(1.5, false, 0, INF,50);
-  unitDrive(-1.5); // go back home
+  unitDrive(-2); // go back home
 }
 
 
