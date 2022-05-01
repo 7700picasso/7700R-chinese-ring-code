@@ -74,6 +74,8 @@ const double pi = 3.141592653589793238462643383279502884197169399375105820974944
 	sum = sum * decay + error;                                       \
 	speed = Kp * error + Ki * sum + Kd * (error - olderror);
 
+std::pair<double, double> Pos = {-1.875 * UNITSIZE, -2.5 * UNITSIZE};
+
 // for red comments
 
 void pre_auton(void) {
@@ -91,18 +93,6 @@ void pre_auton(void) {
 	
 	// BOOOOOOP whoops i touched it
 }
-
-void drive(int lspeed, int rspeed, int wt){
-  leftDrive1.spin(forward, lspeed, pct);
-  leftDrive2.spin(forward, lspeed, pct);
-  leftmiddle .spin(forward, lspeed, pct);
-  rightDrive1.spin(forward, rspeed, pct);
-  rightDrive2 .spin(forward, rspeed, pct);
-  rightmiddle .spin(forward, rspeed, pct);
-  wait(wt, msec);
-}
-//use to go forward,backwards,left right etc,turning if your stupid
-//use mmDrive to go forward and backwards,use gyro to turn
 
 double wheelRevs(uint8_t idx) {    
   double rots[] = {
@@ -166,15 +156,15 @@ std::array<double,2> calcArc(double dx, double dy, double theta = 90 - Gyro.rota
   }
 }
 
-std::array<double, 2> calcPos(double deltaL, double deltaR, double theta = 90 - Gyro.rotation(deg), double w = WIDTH / 2) {
-  if (deltaL != deltaR) {
-    double r = w * (deltaR + deltaL) / (deltaR - deltaL);
-    double theta2 = 90 * (deltaR - deltaL) / pi / w + theta - 90;
+std::pair<double, double> calcPos(double dL, double dR, double theta = 90 - Gyro.rotation(deg), double w = WIDTH / 2) {
+  if (dL != dR) {
+    double r = w * (dR + dL) / (dR - dL);
+    double theta2 = 90 * (dR - dL) / pi / w + theta - 90;
     double oX = -r * sin(theta RAD), oY = r * cos(theta RAD);
     return {oX + r * cos(theta2 RAD), oY + r * sin(theta2 RAD)};
   }
   else {
-    return {deltaL * cos(theta RAD), deltaL * sin(theta RAD)};
+    return {dL * cos(theta RAD), dL * sin(theta RAD)};
   }
 }
 
@@ -216,6 +206,29 @@ std::array<double,8> getTemp() {
   temps[6]/=7;
   return temps;
 }
+
+void drive(int lspeed, int rspeed, int wt){
+  double L = leftDrive1.position(deg) + leftDrive2.position(deg) + leftmiddle.position(deg);
+  double R = rightDrive1.position(deg) + rightDrive2.position(deg) + rightmiddle.position(deg);
+
+  leftDrive1.spin(forward, lspeed, pct);
+  leftDrive2.spin(forward, lspeed, pct);
+  leftmiddle .spin(forward, lspeed, pct);
+  rightDrive1.spin(forward, rspeed, pct);
+  rightDrive2 .spin(forward, rspeed, pct);
+  rightmiddle .spin(forward, rspeed, pct);
+  wait(wt, msec);
+
+  L = (leftDrive1.position(deg) + leftDrive2.position(deg) + leftmiddle.position(deg) - L) / 3 * Diameter * pi; // get average change on left side
+  R = (rightDrive1.position(deg) + rightDrive2.position(deg) + rightmiddle.position(deg) - R) / 3 * Diameter * pi; // get average change on right side
+
+  // odometry
+  std::pair<double,double> dPos = calcPos(L,R);
+  Pos.first += dPos.first;
+  Pos.second += dPos.second;
+}
+//use to go forward,backwards,left right etc,turning if your stupid
+//use mmDrive to go forward and backwards,use gyro to turn
 
 void brakeDrive() {
   leftDrive1.stop(brake);
@@ -436,7 +449,7 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
   EndClaw(endClaw);
 }
 
-void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc = true, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
+void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc = true, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.5) {
 	double Kp = 10; // was previously 50/3
 	double Ki = 1.5; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
@@ -524,7 +537,7 @@ void arcTurn(double target, double propLeft=1, double propRight=1, bool endClaw 
 void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
   x2 *= UNITSIZE, y2 *= UNITSIZE;
   std::array<double, 2> arc = calcArc(x2, y2);
-  std::array<double, 2> pos = {0, 0};
+  std::pair<double, double> pos = {0, 0};
   double Kp = 10; // was previously 50/3
 	double Ki = 1; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
@@ -599,7 +612,7 @@ void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, u
     R[0] = wheelRevs(3);
     int idx = 1;
     pos = calcPos((L[0] - L[idx]) * Diameter * pi, (R[0] - R[idx]) * Diameter * pi, theta);
-    arc = calcArc(x2 - pos[0], y2 - pos[1]);
+    arc = calcArc(x2 - pos.first, y2 - pos.second);
     olderror = error;
     error = fabs(arc[0]) > fabs(arc[1]) ? arc[0] : arc[1];
     L[1] = L[0];
@@ -635,12 +648,16 @@ void balance() {
 		}
 		else {
 			unitDrive(-sgnPitch * back / UNITSIZE);
+      uint32_t startTime = timer::system();
 			while (fabs(Gyro.pitch(degrees)) < stop) { // this should end with us waiting forever when its balanced
 				wait(10,msec);
 				if (fabs(Gyro.pitch(degrees)) < 3) {
 					Controller1.Screen.setCursor(0,0);
 					Controller1.Screen.print(back);
 				}
+        if (timer::system() - startTime > 1000) {
+          return;
+        }
 				sgnPitch = sgn(Gyro.pitch(degrees));
 			}
 			// binary search the value for back.
@@ -670,12 +687,11 @@ void gyroturn(double target, double maxSpeed = 90, uint32_t maxTime = 750, doubl
 
   target += Gyro.rotation(degrees);
 
-  while ((fabs(error) > accuracy || fabs(speed) > 1) && timer::system() - startTime < maxTime) { //fabs = absolute value while loop again
+  while (fabs(error) > accuracy && timer::system() - startTime < maxTime) {
     error = target - Gyro.rotation(degrees);; //error gets smaller closer you get,robot slows down
     doThePIDThing
     speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
     drive(speed, -speed, 10);
-    Brain.Screen.printAt(1, 60, "speed = %0.2f    degrees", speed);
     olderror = error;
   }
 }
@@ -683,36 +699,76 @@ void gyroturn(double target, double maxSpeed = 90, uint32_t maxTime = 750, doubl
 void turnTo(double target, double maxSpeed = 90, double maxTime = 750, double accuracy = 2) {
   gyroturn(mod(target - Gyro.rotation(degrees) - 180, 360) - 180, maxSpeed, maxTime, accuracy);
 }
+
 void pointAt(double x2, double y2, bool Reverse = false, uint32_t maxSpeed = 88, uint32_t maxTime = 750, double x1 = GPS.yPosition(inches), double y1 = -GPS.xPosition(inches), double accuracy = 2) { 
-	// point towards targetnss 
+	// point towards target
   x2 *= UNITSIZE, y2 *= UNITSIZE;
-	double target = degToTarget(x1, y1, x2, y2, Reverse, Gyro.rotation(degrees)); // I dont trust the gyro for finding the target, and i dont trst the gps with spinning
+	double target = degToTarget(x1, y1, x2, y2, Reverse); // I dont trust the gyro for finding the target, and i dont trst the gps with spinning
 	if (fabs(target) < 3) {
     return;
   }
   gyroturn(target,maxSpeed,maxTime,accuracy);
 }
 
-void driveTo(double x2, double y2, bool Reverse = false, uint8_t endClaw = false, double offset = 0, double clawDist = 6, uint32_t maxTime = 4000, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 67, uint8_t trackingID = 0, double accuracy = 0.25) {
-	// get positional data
-  pointAt(x2, y2, Reverse);
-  double x1 = GPS.yPosition(inches), y1 = -GPS.xPosition(inches);
-  x2 *= UNITSIZE, y2 *= UNITSIZE;
-  //x1 = -GPS.yPosition(inches), y1 = GPS.xPosition(inches);
+void driveTo(double x2, double y2, bool Reverse = false, uint8_t endClaw = false, double offset = 0, double clawDist = 3, uint32_t maxTime = 4000, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 67, uint8_t trackingID = 0, double accuracy = 0.25) {
+	// turning
+  pointAt(x2, y2, Reverse, 100, 500, GPS.yPosition(inches), -GPS.xPosition(inches), 5); // roughly face it and let error correction take over
 
-  // go to target
-  // volatile double distSpeed = 100;
-  double target = (1 - Reverse * 2) * (sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)) - offset);
-  unitDrive(target / UNITSIZE, endClaw, clawDist, maxTime, maxSpeed, raiseMogo, mogoHeight, trackingID, accuracy);
+  // get positional data
+  x2 *= UNITSIZE, y2 *= UNITSIZE;
+
+  const double Kp = 10, Ki = 1.5, Kd = 20, decay = 0.5;
+
+  double x1 = GPS.yPosition(inches), y1 = -GPS.xPosition(inches);
+  double startTime = timer::system();
+  double error = (1 - Reverse * 2) * (sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)) - offset);
+  double olderror;
+  double sum = 0;
+  double speed;
+  double turnSpeed = 0;
+  uint32_t ticks = 0;
+
+  while (fabs(error) < accuracy && timer::system() - startTime > maxTime) {
+    // POSITION
+    x1 = GPS.yPosition(inches), y1 = -GPS.xPosition(inches);
+    // sanity check
+    if (fabs(x1 - Pos.first) > 11.875) { // 0.5 tiles off isn't too much for odometric comparison
+      // use odometry values
+      x1 = Pos.first;
+    }
+    if (fabs(y1 - Pos.second) > 11.875) { // 0.5 tiles off isn't too much for odometric comparison
+      // use odometry values
+      y1 = Pos.second;
+    }
+    Pos = {x1, y1}; // update odometry
+    // PID
+    olderror = error; // update olderror
+    error = (1 - Reverse * 2) * (sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)) - offset); // update error
+    doThePIDThing // do the PID thing
+    speed = (fabs(speed) > maxSpeed ? sgn(speed) * maxSpeed : speed); // apply speed cap
+    // PATH CORRECTION
+    turnSpeed = (getTrackSpeed(trackingID, Reverse) + !trackingID * 0.35 * degToTarget(x1, y1, x2, y2)) * (30 + maxSpeed * 0.7) / 100; // First try tracking the goal. Otherwise follow the path. Ensure that it doesn't be too wobbly
+    // LIFT & CLAW
+    EndClaw(endClaw, clawDist, error); // end claw
+    if (raiseMogo && ((endClaw == 1 && claw1.value() != CLAW_OPEN && error < clawDist) || endClaw != 1)) { // lift
+      liftTo(mogoHeight, 0);
+    }
+    // FINISH TICK
+    drive(speed + turnSpeed, speed - turnSpeed, 10);
+    ticks++;
+  }
+  EndClaw(endClaw); // end claw if this has not been done already.
+  brakeDrive(); // then stop
+  //unitDrive(target / UNITSIZE, endClaw, clawDist, maxTime, maxSpeed, raiseMogo, mogoHeight, trackingID, accuracy);
 }
 
-void outake() {
+void outake() { // i did not spell this correctly but it looks better this way
   while(true) {
     // if its still jammed after outaking then it resumes outaking
     if (this_thread::priority() != 1 && fabs(Rings.velocity(rpm)) < 10) {
-      rings(true,-100); // revese intake
+      rings(true,-100); // outake
       this_thread::sleep_for(250); // wait a bit
-      rings(true); // resume intaking
+      rings(true); // resume intake
     }
     this_thread::sleep_for(10); // wait for a bit
   }
@@ -764,7 +820,7 @@ void auton() {
   unitDrive(2.1,1,3,1500,87,true,80,YELLOW); // get it
   liftTo(75,0); // raise lift
   // PLATFORM LEFT YELLOW
-  turnTo(20,100,1500); // fix direction
+  turnTo(20,100,500); // fix direction
   unitArc(1.25,1,0.43); // curve to face the rings
   unitDrive(0.75);
   turnTo(-5);
@@ -805,7 +861,7 @@ void auton() {
   unitDrive(1.5,0,0,INF,67); // rings
   // PLATFORM RIGHT YELLOW
   liftTo(70,0);
-  pointAt(0.75,2.5);
+  //pointAt(0.75,2.5);
   driveTo(0.75,2.5,false,false,12,0,1250,87); // go to platform
   wait(200,msec);
   Claw(CLAW_OPEN); // drop it
@@ -822,7 +878,7 @@ void auton() {
   unitDrive(0.75,1,3,INF,87,true, 75, RED); // get it with claw
   // now platform it
   liftTo(70,0);
-  pointAt(-0.67,2.5);
+  //pointAt(-0.67,2.5);
   driveTo(-0.67, 2.5, false, false, 8, 0, 1000, 67); // go to platform
   Claw(CLAW_OPEN); // drop it
   wait(200,msec);
@@ -838,7 +894,7 @@ void auton() {
   driveTo(0,0, false, 1, 0,3, INF, 75, true, 90, YELLOW); // claw it
   liftTo(90,0);
   // PLATFORM MID
-  pointAt(0,2.5); // face it once
+  //pointAt(0,2.5); // face it once
 	driveTo(0,2, false, 0,0,0, 1300,67); // go to platform
   liftTime(-100, 333,true); // lower lift. then wait
   Claw(CLAW_OPEN); // drop it
@@ -847,12 +903,11 @@ void auton() {
   liftTo(20,0); // lower lift
   driveTo(2,1); // first movement
 	liftTo(-10,0); // lower lift
-	pointAt(1.25, 2.5); // face it once
+	//pointAt(1.25, 2.5); // face it once
   driveTo(1.25, 2.5, false, 1, 5, 2, 1500, 50, false, 0, BLUE); // face it twice. get it
   // ALIGN FOR BALANCE
   unitDrive(-1); // back up
-  driveTo(2,-2,false,0,0,0,2000,100,true,67); // go mostly there
-  driveTo(2,-3,false,0,0,0,500); // hit wall to align
+  driveTo(2,-3,false,0,0,0,1500,100,true,67); // go mostly there
   unitDrive(-0.1); // back up
   gyroturn(90); // point straight at the platform
   // Lower the platform
@@ -864,8 +919,7 @@ void auton() {
   balance();
 }
 
-//driver controls,dont change unless your jaehoon or sean
-//driver controls,dont change unless your jaehoon or sean
+//driver controls,dont change unless your jaehoon or ben
 void driver() {
   // User control code here, inside the loop
   //2 joy sticks
@@ -957,10 +1011,9 @@ int main() {
 
   // Run the pre-autonomous function.
   pre_auton();
-
- 
-  // Stops main from exiting in the infinite loop.
+  
+  // end
   while (true) {
-    wait(100, msec);
+    wait(100,msec);
   }
 }
