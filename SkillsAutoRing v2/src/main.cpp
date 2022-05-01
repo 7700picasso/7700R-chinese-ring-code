@@ -717,7 +717,7 @@ void driveTo(double x2, double y2, bool Reverse = false, uint8_t endClaw = false
   // get positional data
   x2 *= UNITSIZE, y2 *= UNITSIZE;
 
-  const double Kp = 10, Ki = 1.5, Kd = 20, decay = 0.5;
+  const double Kp = 10, Ki = 1.5, Kd = 20, decay = 0.5, Tp = 0.4;
 
   double x1 = GPS.yPosition(inches), y1 = -GPS.xPosition(inches);
   double startTime = timer::system();
@@ -747,7 +747,7 @@ void driveTo(double x2, double y2, bool Reverse = false, uint8_t endClaw = false
     doThePIDThing // do the PID thing
     speed = (fabs(speed) > maxSpeed ? sgn(speed) * maxSpeed : speed); // apply speed cap
     // PATH CORRECTION
-    turnSpeed = (getTrackSpeed(trackingID, Reverse) + !trackingID * 0.35 * degToTarget(x1, y1, x2, y2)) * (30 + maxSpeed * 0.7) / 100; // First try tracking the goal. Otherwise follow the path. Ensure that it doesn't be too wobbly
+    turnSpeed = (getTrackSpeed(trackingID, Reverse) + !trackingID * Tp * degToTarget(x1, y1, x2, y2)) * (30 + maxSpeed * 0.7) / 100; // First try tracking the goal. Otherwise follow the path. Ensure that it doesn't be too wobbly
     // LIFT & CLAW
     EndClaw(endClaw, clawDist, error); // end claw
     if (raiseMogo && ((endClaw == 1 && claw1.value() != CLAW_OPEN && error < clawDist) || endClaw != 1)) { // lift
