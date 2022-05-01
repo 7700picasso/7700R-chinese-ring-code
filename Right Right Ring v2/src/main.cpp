@@ -37,6 +37,8 @@
 // Stalker              distance      7               
 // Vision               vision        19              
 // VisionBack           vision        12              
+// Trigger1             limit         G               
+// Trigger2             limit         H               
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
@@ -68,7 +70,7 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define RAD * pi / 180
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
-#define RING_SPEED 76
+#define RING_SPEED 77.5
 #define RED 1
 #define BLUE 2
 #define YELLOW 3
@@ -202,6 +204,10 @@ double degToTarget(double x1, double y1, double x2, double y2, bool Reverse = fa
 	*/
 }
 
+double getSpeed(double x, double arc = 20) {
+  return sgn(x) * (arc * exp(log((100 + arc) / arc) * fabs(x) / 100) - arc);
+}
+
 std::array<double,8> getTemp() {
   std::array<double,8> temps = {
     leftDrive1.temperature(temperatureUnits::celsius),
@@ -331,7 +337,7 @@ void Fork(bool state) {
 
 void EndClaw(uint8_t clawID, double clawDist = 0, double error = 0) {
   bool claws[] = {false, claw1.value() == CLAW_OPEN, MogoTilt.value() == TILT_OPEN, Forklift.value() == FORK_DOWN}, isOpen = claws[clawID];
-  if (isOpen && fabs(error) <= clawDist) {
+  if (isOpen && (fabs(error) <= clawDist || ((Trigger1.pressing() || Trigger2.pressing()) && clawID != 1))) {
     switch (clawID) {
       case 1: 
         Claw(!CLAW_OPEN);
@@ -427,7 +433,7 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
     olderror = error;
     isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
     EndClaw(endClaw, clawDist, error);
-    if (raiseMogo && !isOpen && (error + 6 < clawDist) && Lift.position(degrees) < 10) {
+    if (raiseMogo && !isOpen && (error + 6 < clawDist && endClaw != 1) && Lift.position(degrees) < 10) {
       if (Lift.position(deg) < -70) {
         Lift.setPosition(0,deg);
       }
@@ -822,8 +828,8 @@ void driver() {
 
   while (true) {
     // drive control
-		int rstick = sgn(Controller1.Axis2.position()) * pow(fabs(Controller1.Axis2.position()), 2) / 10;
-		int lstick = sgn(Controller1.Axis3.position()) * pow(fabs(Controller1.Axis3.position()), 2) / 10;
+		double rstick = getSpeed(Controller1.Axis2.position());
+		double lstick = getSpeed(Controller1.Axis3.position());
 		drive(lstick, rstick,10);
 		int8_t tmp, ringSpeed = RING_SPEED;
     // mogoTilt controls

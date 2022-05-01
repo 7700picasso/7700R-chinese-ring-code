@@ -34,6 +34,8 @@
 // Stalker              distance      7               
 // VisionBack           vision        12              
 // Vision               vision        19              
+// Trigger1             limit         G               
+// Trigger2             limit         H               
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
@@ -65,7 +67,7 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define RAD * pi / 180
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
-#define RING_SPEED 85
+#define RING_SPEED 77.5
 #define doThePIDThing                                              \
 	sum = sum * decay + error;                                       \
 	speed = Kp * error + Ki * sum + Kd * (error - olderror);
@@ -194,6 +196,10 @@ double degToTarget(double x1, double y1, double x2, double y2, bool Reverse = fa
 	Noting that a < 0 iff a / b < 0 for all a and b ≠ 0, our modulo formula becomes:
 	a % b = (a < 0) * b + a - b * (floor(a / b) + (a < 0)). (modulo formula)
 	*/
+}
+
+double getSpeed(double x, double arc = 20) {
+  return sgn(x) * (arc * exp(log((100 + arc) / arc) * fabs(x) / 100) - arc);
 }
 
 std::array<double,8> getTemp() {
@@ -328,7 +334,7 @@ void Fork(bool state) {
 
 void EndClaw(uint8_t clawID, double clawDist = 0, double error = 0) {
   bool claws[] = {false, claw1.value() == CLAW_OPEN, MogoTilt.value() == TILT_OPEN, Forklift.value() == FORK_DOWN}, isOpen = claws[clawID];
-  if (isOpen && fabs(error) <= clawDist) {
+  if (isOpen && (fabs(error) <= clawDist || ((Trigger1.pressing() || Trigger2.pressing()) && clawID != 1))) {
     switch (clawID) {
       case 1: 
         Claw(!CLAW_OPEN);
@@ -734,7 +740,7 @@ void auton() {
   //Fork(!FORK_DOWN); // forklift folds up
   // SIDE
   Lift.spin(forward, -100, pct);
-  unitDrive(1.7,1,1,1000);
+  unitDrive(1.72,1,1,1000);
   unitDrive(-2, 0, 0, 1500); // back up. This may take a while if we're playing tuggle war. We have plenty of time at this point.
   Gyro.resetRotation();
   // ALLIANCE
@@ -767,8 +773,8 @@ void driver() {
 
   while (true) {
     // drive control
-		int rstick=Controller1.Axis2.position();
-		int lstick=Controller1.Axis3.position();
+		double rstick = getSpeed(Controller1.Axis2.position());
+		double lstick = getSpeed(Controller1.Axis3.position());
 		drive(lstick, rstick,10);
 		int8_t tmp, ringSpeed = RING_SPEED;
     // mogoTilt controls

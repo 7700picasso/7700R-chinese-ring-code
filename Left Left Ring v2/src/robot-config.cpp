@@ -24,15 +24,13 @@ motor Rings = motor(PORT20, ratio6_1, false);
 digital_out claw1 = digital_out(Brain.ThreeWirePort.E);
 distance Stalker = distance(PORT7);
 /*vex-vision-config:begin*/
-signature Vision__MOGO_RED = signature (1, 8017, 9845, 8931, 393, 1153, 773, 5.2, 0);
-signature Vision__MOGO_BLUE = signature (2, -2897, -1905, -2401, 10269, 14393, 12331, 4.2, 0);
-signature Vision__MOGO_YELLOW = signature (3, 1117, 2153, 1636, -2853, -2167, -2510, 4.3, 0);
-vision Vision = vision (PORT19, 50, Vision__MOGO_RED, Vision__MOGO_BLUE, Vision__MOGO_YELLOW);
+vision VisionBack = vision (PORT12, 50);
 /*vex-vision-config:end*/
 /*vex-vision-config:begin*/
-vision VisionBack = vision (PORT12, 50, Vision__MOGO_RED, Vision__MOGO_BLUE, Vision__MOGO_YELLOW);
+vision Vision = vision (PORT19, 50);
 /*vex-vision-config:end*/
-/*vex-vision-config:end*/
+limit Trigger1 = limit(Brain.ThreeWirePort.G);
+limit Trigger2 = limit(Brain.ThreeWirePort.H);
 
 // VEXcode generated functions
 // define variable for remote controller enable/disable

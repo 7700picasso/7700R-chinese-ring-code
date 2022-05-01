@@ -65,7 +65,7 @@ const double pi = 3.141592653589793238462643383279502884197169399375105820974944
 #define RAD * pi / 180
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
-#define RING_SPEED 76
+#define RING_SPEED 77.5
 #define RED 1
 #define BLUE 2
 #define YELLOW 3
@@ -287,8 +287,8 @@ void liftTime(int speed, int duration, bool stop = false) {
 }
 
 void liftWait(double target, uint32_t maxTime = INF) {
-  uint32_t startTime = vex::timer::system();
-  while (Lift.position(degrees) * 7 > target && vex::timer::system() - startTime < maxTime) {
+  uint32_t startTime = timer::system();
+  while (Lift.position(degrees) * 7 > target && timer::system() - startTime < maxTime) {
     wait(10, msec);
   }
 }
@@ -298,7 +298,7 @@ void liftWait(double target, uint32_t maxTime = INF) {
 //example lift(-100,1200);  so lift 100% for 1200 msc
 // 100 is up and -100 is down,or other way around,you can figure that out
 
-void rings(bool on, int speed = RING_SPEED) { // i think 100 is a bit fast
+void rings(bool on, double speed = RING_SPEED) { // i think 100 is a bit fast
   if (on) {
     Rings.spin(forward, on * speed, percent);
   }
@@ -412,10 +412,10 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
   rightmiddle.setPosition(0, rev);
 	 
   volatile double sum = 0;
-	uint32_t startTime = vex::timer::system();
+	uint32_t startTime = timer::system();
   bool isOpen;
 
-  while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
+  while((fabs(error) > accuracy || fabs(speed) > 10) && timer::system() - startTime < maxTime) {
     // did this late at night but this while is important 
     error = target - wheelRevs(0) * Diameter * pi; //the error gets smaller when u reach ur target
     doThePIDThing
@@ -427,7 +427,7 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
     olderror = error;
     isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
     EndClaw(endClaw, clawDist, error);
-    if (raiseMogo && (!isOpen && (error + 6 < clawDist) || endClaw != 1) && !lifted) {
+    if (raiseMogo && ((!isOpen && (error + 6 < clawDist)) || endClaw != 1) && !lifted) {
       liftTo(mogoHeight,0);
 			lifted = true;
     }
@@ -456,11 +456,11 @@ void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc 
   rightmiddle.setPosition(0, rev);
 	 
   volatile double sum = 0;
-  uint32_t startTime = vex::timer::system();
+  uint32_t startTime = timer::system();
   bool isOpen;
 	bool lifted = false;
 	 
-  while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
+  while((fabs(error) > accuracy || fabs(speed) > 10) && timer::system() - startTime < maxTime) {
     // did this late at night but this while is important 
     error = target - wheelRevs(1) * Diameter * pi; //the error gets smaller when u reach ur target
     doThePIDThing
@@ -471,7 +471,7 @@ void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc 
     olderror = error;
     isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
     EndClaw(endClaw,clawDist,error);
-    if (raiseMogo && (!isOpen && (error + 6 < clawDist) || endClaw != 1) && !lifted) {
+    if (raiseMogo && ((!isOpen && (error + 6 < clawDist)) || endClaw != 1) && !lifted) {
       liftTo(mogoHeight,0);
 			lifted = true;
     }
@@ -500,11 +500,11 @@ void arcTurn(double target, double propLeft=1, double propRight=1, bool endClaw 
   rightmiddle.setPosition(0, rev);
 	 
   volatile double sum = 0;
-  uint32_t startTime = vex::timer::system();
+  uint32_t startTime = timer::system();
   bool isOpen;
 	bool lifted = false;
 	 
-  while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
+  while((fabs(error) > accuracy || fabs(speed) > 10) && timer::system() - startTime < maxTime) {
     error = target - dir(Gyro.rotation(deg)); // the error gets smaller when u reach ur target
     doThePIDThing // call macro
     speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
@@ -512,7 +512,7 @@ void arcTurn(double target, double propLeft=1, double propRight=1, bool endClaw 
     olderror = error;
     isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
     EndClaw(endClaw,clawDist,error);
-    if (raiseMogo && (!isOpen && (error + 6 < clawDist) || endClaw != 1) && !lifted) {
+    if (raiseMogo && ((!isOpen && (error + 6 < clawDist)) || endClaw != 1) && !lifted) {
       liftTo(mogoHeight,0);
 			lifted = true;
     }
@@ -576,9 +576,9 @@ void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, u
   rightDrive2.setPosition(0, rev);
   rightmiddle.setPosition(0, rev);
 	 
-  uint32_t startTime = vex::timer::system();
+  uint32_t startTime = timer::system();
 
-  while (fabs(error) > 0.5 && vex::timer::system() - startTime < maxTime) {
+  while (fabs(error) > 0.5 && timer::system() - startTime < maxTime) {
     // get base speed
     doThePIDThing
     speed = fabs(speed) > maxSpeed ? sgn(speed) * maxSpeed : speed; // lower speed to maxSpeed
@@ -629,7 +629,8 @@ void balance() {
 		pitch = Gyro.pitch(degrees);
 		sgnPitch = sgn(pitch);
 		if (fabs(pitch) > stop) {
-			drive(50,50,10);
+      int8_t speed = sgnPitch * 100;
+			drive(speed,speed,10);
 			sgnTip = sgnPitch;
 		}
 		else {
@@ -655,7 +656,7 @@ void balance() {
 	}
 }
 
-void gyroturn(double target, double maxSpeed = 87.5, uint32_t maxTime = 1500, double accuracy = 1.25) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
+void gyroturn(double target, double maxSpeed = 90, uint32_t maxTime = 750, double accuracy = 2) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
   double Kp = 0.6;
   double Ki = 0;
   double Kd = 5;
@@ -665,11 +666,11 @@ void gyroturn(double target, double maxSpeed = 87.5, uint32_t maxTime = 1500, do
   volatile double speed;
   volatile double error = target;
   volatile double olderror = error;
-  uint32_t startTime = vex::timer::system();
+  uint32_t startTime = timer::system();
 
   target += Gyro.rotation(degrees);
 
-  while ((fabs(error) > accuracy || fabs(speed) > 1) && vex::timer::system() - startTime < maxTime) { //fabs = absolute value while loop again
+  while ((fabs(error) > accuracy || fabs(speed) > 1) && timer::system() - startTime < maxTime) { //fabs = absolute value while loop again
     error = target - Gyro.rotation(degrees);; //error gets smaller closer you get,robot slows down
     doThePIDThing
     speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
@@ -679,34 +680,22 @@ void gyroturn(double target, double maxSpeed = 87.5, uint32_t maxTime = 1500, do
   }
 }
 
-void turnTo(double target, double maxSpeed = 87.5, double maxTime = 1500, double accuracy = 1.25) {
+void turnTo(double target, double maxSpeed = 90, double maxTime = 750, double accuracy = 2) {
   gyroturn(mod(target - Gyro.rotation(degrees) - 180, 360) - 180, maxSpeed, maxTime, accuracy);
 }
-void pointAt(double x2, double y2, bool Reverse = false, uint32_t maxSpeed = 87.5, uint32_t maxTime = 1300, double x1 = GPS.yPosition(inches), double y1 = -GPS.xPosition(inches), double accuracy = 1.25) { 
+void pointAt(double x2, double y2, bool Reverse = false, uint32_t maxSpeed = 88, uint32_t maxTime = 750, double x1 = GPS.yPosition(inches), double y1 = -GPS.xPosition(inches), double accuracy = 2) { 
 	// point towards targetnss 
   x2 *= UNITSIZE, y2 *= UNITSIZE;
 	double target = degToTarget(x1, y1, x2, y2, Reverse, Gyro.rotation(degrees)); // I dont trust the gyro for finding the target, and i dont trst the gps with spinning
-	if (fabs(target) < 2.5) {
+	if (fabs(target) < 3) {
     return;
   }
   gyroturn(target,maxSpeed,maxTime,accuracy);
 }
-bool runningAuto = 0;
-/*void printPos() {
-  while (true) {
-    //Controller1.Screen.clearLine();
-    if (!runningAuto) {
-      Controller1.Screen.setCursor(0, 0);
-      Controller1.Screen.print("(%0.2f, %0.2f), %0.2f", GPS.yPosition(inches) / -UNITSIZE, GPS.xPosition(inches) / UNITSIZE, GPS.rotation(degrees) - 90, Gyro.rotation(degrees));
-    }
-    this_thread::sleep_for(500);
-  }
-}
-vex::thread POS(printPos);*/
-//                                                        if this runs for 4.3 billion msecs, then skills is broken, and our battery is magical v
+
 void driveTo(double x2, double y2, bool Reverse = false, uint8_t endClaw = false, double offset = 0, double clawDist = 6, uint32_t maxTime = 4000, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 67, uint8_t trackingID = 0, double accuracy = 0.25) {
 	// get positional data
-  pointAt(x2, y2, Reverse, 75);
+  pointAt(x2, y2, Reverse);
   double x1 = GPS.yPosition(inches), y1 = -GPS.xPosition(inches);
   x2 *= UNITSIZE, y2 *= UNITSIZE;
   //x1 = -GPS.yPosition(inches), y1 = GPS.xPosition(inches);
@@ -716,6 +705,20 @@ void driveTo(double x2, double y2, bool Reverse = false, uint8_t endClaw = false
   double target = (1 - Reverse * 2) * (sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)) - offset);
   unitDrive(target / UNITSIZE, endClaw, clawDist, maxTime, maxSpeed, raiseMogo, mogoHeight, trackingID, accuracy);
 }
+
+void outake() {
+  while(true) {
+    // if its still jammed after outaking then it resumes outaking
+    if (this_thread::priority() != 1 && fabs(Rings.velocity(rpm)) < 10) {
+      rings(true,-100); // revese intake
+      this_thread::sleep_for(250); // wait a bit
+      rings(true); // resume intaking
+    }
+    this_thread::sleep_for(10); // wait for a bit
+  }
+}
+
+thread OUTAKE(outake);
 
 void auton() {
 	NOTE"            R             RRRR            RRRR  RRRRRRRRRRRRRRRRRR       RRRRRRRR       ";
@@ -745,34 +748,18 @@ void auton() {
   if (mod(Gyro.rotation(deg), 360) - 90 > 10) { // sanity check
 	  Gyro.setRotation(-90, degrees);
   }
-
-	NOTE "AUTO PLAN:";
-	NOTE "START ON RED SIDE LEFT";
-	/*
-	  1)  TILT LEFT BLUE
-	  2)  CLAW LEFT YELLOW
-	  3)  PLATFORM LEFT YELLOW 
-	  4)  PLATFORM LEFT BLUE
-	  5)  CLAW RIGHT YELLOW
-    6)  TILT RIGHT BLUE
-	  7)  PLATFORM RIGHT YELLOW
-    8)  CLAW MID
-    9)  PLATFORM MID
-	  10) PLATFORM RIGHT BLUE
-    11) TILT LEFT RED
-    12) CLAW RIGHT RED
-    13) PARK ON RIGHT-RED SIDE
-	*/
+	
   uint32_t startTime = timer::system();
   Lift.setPosition(0, degrees); // set lift rotations
   // GET LEFT RED
   unitDrive(-0.2,2,0); // tilt it
   liftDeg(30,0); // raise lift a bit
   rings(true); // intake on
+  OUTAKE.thread::setPriority(7);
   unitDrive(0.75,false,0,1000,33); // get rings
   unitDrive(-0.25); // back up to get space
   // CLAW LEFT YELLOW
-    unitArc(1,1,0); // face the goal
+  unitArc(1,1,0); // face the goal
   Lift.spin(forward,-100,percent); // lower lift
   unitDrive(2.1,1,3,1500,87,true,80,YELLOW); // get it
   liftTo(75,0); // raise lift
@@ -898,10 +885,11 @@ void driver() {
 
   while (true) {
     // drive control
+    OUTAKE.thread::setPriority(1);
 		int rstick=Controller1.Axis2.position();
 		int lstick=Controller1.Axis3.position();
 		drive(lstick, rstick,10);
-		int8_t tmp, ringSpeed = RING_SPEED;
+		double tmp, ringSpeed = RING_SPEED;
     // mogoTilt controls
     if (!Controller1.ButtonR2.pressing()) {
       r2Down = false;
