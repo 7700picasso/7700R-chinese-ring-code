@@ -67,7 +67,7 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define RAD * pi / 180
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
-#define RING_SPEED 77.5
+#define RING_SPEED 85
 #define doThePIDThing                                              \
 	sum = sum * decay + error;                                       \
 	speed = Kp * error + Ki * sum + Kd * (error - olderror);

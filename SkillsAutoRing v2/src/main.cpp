@@ -34,6 +34,7 @@
 // claw1                digital_out   E               
 // Vision               vision        19              
 // VisionBack           vision        12              
+// GPSR                 gps           18              
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
@@ -61,11 +62,11 @@ const double pi = 3.141592653589793238462643383279502884197169399375105820974944
 #define DIAG sqrt(2)
 #define High_Open true
 #define SPEED_CAP 100
-#define WIDTH 15
+#define WIDTH 11.75
 #define RAD * pi / 180
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
-#define RING_SPEED 77.5
+#define RING_SPEED 85
 #define RED 1
 #define BLUE 2
 #define YELLOW 3
@@ -187,6 +188,29 @@ double degToTarget(double x1, double y1, double x2, double y2, bool Reverse = fa
 	Noting that a < 0 iff a / b < 0 for all a and b ≠ 0, our modulo formula becomes:
 	a % b = (a < 0) * b + a - b * (floor(a / b) + (a < 0)). (modulo formula)
 	*/
+}
+
+double perpDist(double x1, double y1,double x2, double y2) {
+  double m = -tan(Gyro.rotation(deg) RAD), n = y2 - m * x2;
+  return fabs(m * x1 - y1 + n) / sqrt(m * m + n * n);
+}
+
+double xPos() {
+  //return Pos.first;
+  // check odometry values
+  if (degToTarget((GPSR.yPosition(inches) + GPSR.yPosition(inches)) / 2, -(GPSR.xPosition(inches) + GPS.xPosition(inches)) / 2, 0, 0) >= 0) {
+    return GPSR.yPosition(inches);
+  }
+  return GPS.yPosition(inches);
+}
+
+double yPos() {
+  // check odometry values
+  //return Pos.second;
+  if (degToTarget((GPSR.yPosition(inches) + GPSR.yPosition(inches)) / 2, -(GPSR.xPosition(inches) + GPS.xPosition(inches)) / 2, 0, 0) >= 0) {
+    return -GPSR.xPosition(inches);
+  }
+  return -GPS.xPosition(inches);
 }
 
 std::array<double,8> getTemp() {
@@ -403,7 +427,7 @@ double getTrackSpeed(uint8_t trackingID = 0, bool back = false) {
   return turnSpeed;
 }
 
-void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, uint8_t trackingID = 0, double accuracy = 0.25) {
+void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = 90, bool raiseMogo = false, double mogoHeight = 100, uint8_t trackingID = 0, double accuracy = 0.25) {
 	double Kp = 10; // was previously 50/3
 	double Ki = 1.5; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
@@ -700,7 +724,7 @@ void turnTo(double target, double maxSpeed = 90, double maxTime = 750, double ac
   gyroturn(mod(target - Gyro.rotation(degrees) - 180, 360) - 180, maxSpeed, maxTime, accuracy);
 }
 
-void pointAt(double x2, double y2, bool Reverse = false, uint32_t maxSpeed = 88, uint32_t maxTime = 750, double x1 = GPS.yPosition(inches), double y1 = -GPS.xPosition(inches), double accuracy = 2) { 
+void pointAt(double x2, double y2, bool Reverse = false, uint32_t maxSpeed = 88, uint32_t maxTime = 750, double x1 = xPos(), double y1 = yPos(), double accuracy = 2) { 
 	// point towards target
   x2 *= UNITSIZE, y2 *= UNITSIZE;
 	double target = degToTarget(x1, y1, x2, y2, Reverse); // I dont trust the gyro for finding the target, and i dont trst the gps with spinning
@@ -710,33 +734,33 @@ void pointAt(double x2, double y2, bool Reverse = false, uint32_t maxSpeed = 88,
   gyroturn(target,maxSpeed,maxTime,accuracy);
 }
 
-void driveTo(double x2, double y2, bool Reverse = false, uint8_t endClaw = false, double offset = 0, double clawDist = 3, uint32_t maxTime = 4000, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 67, uint8_t trackingID = 0, double accuracy = 0.25) {
+void driveTo(double x2, double y2, bool Reverse = false, uint8_t endClaw = false, double offset = 0, double clawDist = 3, uint32_t maxTime = 4000, double maxSpeed = 90, bool raiseMogo = false, double mogoHeight = 67, uint8_t trackingID = 0, double accuracy = 0.25) {
 	// turning
-  pointAt(x2, y2, Reverse, 100, 500, GPS.yPosition(inches), -GPS.xPosition(inches), 5); // roughly face it and let error correction take over
+  pointAt(x2, y2, Reverse, 100, 500, xPos(), yPos(),1.5); // roughly face it and let error correction take over
 
   // get positional data
   x2 *= UNITSIZE, y2 *= UNITSIZE;
 
-  const double Kp = 10, Ki = 1.5, Kd = 20, decay = 0.5, Tp = 0.4;
+  //const double Kp = 10, Ki = 1.5, Kd = 20, decay = 0.5, Tp = 0.4;
 
-  double x1 = GPS.yPosition(inches), y1 = -GPS.xPosition(inches);
-  double startTime = timer::system();
+  double x1 = xPos(), y1 = yPos();
+  //double startTime = timer::system();
   double error = (1 - Reverse * 2) * (sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)) - offset);
-  double olderror;
+  /*double olderror;
   double sum = 0;
   double speed;
   double turnSpeed = 0;
   uint32_t ticks = 0;
-
-  while (fabs(error) < accuracy && timer::system() - startTime > maxTime) {
+  ;
+  while (((perpDist(x1, y1, x2, y2) < accuracy && error < 3) || (claw1.value() == CLAW_OPEN && endClaw == 1)) && timer::system() - startTime > maxTime) {
     // POSITION
     x1 = GPS.yPosition(inches), y1 = -GPS.xPosition(inches);
     // sanity check
-    if (fabs(x1 - Pos.first) > 11.875) { // 0.5 tiles off isn't too much for odometric comparison
+    if (fabs(x1 - Pos.first) > 8) { // 0.5 tiles off isn't too much for odometric comparison
       // use odometry values
       x1 = Pos.first;
     }
-    if (fabs(y1 - Pos.second) > 11.875) { // 0.5 tiles off isn't too much for odometric comparison
+    if (fabs(y1 - Pos.second) > 8) { // 0.5 tiles off isn't too much for odometric comparison
       // use odometry values
       y1 = Pos.second;
     }
@@ -758,23 +782,32 @@ void driveTo(double x2, double y2, bool Reverse = false, uint8_t endClaw = false
     ticks++;
   }
   EndClaw(endClaw); // end claw if this has not been done already.
-  brakeDrive(); // then stop
-  //unitDrive(target / UNITSIZE, endClaw, clawDist, maxTime, maxSpeed, raiseMogo, mogoHeight, trackingID, accuracy);
+  brakeDrive(); // then stop*/
+  unitDrive(error / UNITSIZE, endClaw, clawDist, maxTime, maxSpeed, raiseMogo, mogoHeight, trackingID, accuracy);
 }
 
 void outake() { // i did not spell this correctly but it looks better this way
+  bool jammed = false;
+  uint32_t startTime;
   while(true) {
     // if its still jammed after outaking then it resumes outaking
-    if (this_thread::priority() != 1 && fabs(Rings.velocity(rpm)) < 10) {
-      rings(true,-100); // outake
-      this_thread::sleep_for(250); // wait a bit
-      rings(true); // resume intake
+    if (this_thread::priority() != 1 && fabs(Rings.velocity(rpm)) < 2) {
+      if (!jammed) {
+        startTime = timer::system();
+      }
+      jammed = true;
+      if (timer::system() - startTime > 250) {
+        rings(true,-100); // outake
+        this_thread::sleep_for(250); // wait a bit
+        rings(true); // resume intake
+      }
+    }
+    else {
+      jammed = false;
     }
     this_thread::sleep_for(10); // wait for a bit
   }
 }
-
-thread OUTAKE(outake);
 
 void auton() {
 	NOTE"            R             RRRR            RRRR  RRRRRRRRRRRRRRRRRR       RRRRRRRR       ";
@@ -804,15 +837,18 @@ void auton() {
   if (mod(Gyro.rotation(deg), 360) - 90 > 10) { // sanity check
 	  Gyro.setRotation(-90, degrees);
   }
-	
+  thread OUTAKE(outake);
+  OUTAKE.thread::setPriority(1);
+	Pos = {GPSR.yPosition(inches), -GPSR.xPosition(inches)};
+
   uint32_t startTime = timer::system();
   Lift.setPosition(0, degrees); // set lift rotations
   // GET LEFT RED
   unitDrive(-0.2,2,0); // tilt it
   liftDeg(30,0); // raise lift a bit
   rings(true); // intake on
-  OUTAKE.thread::setPriority(7);
   unitDrive(0.75,false,0,1000,33); // get rings
+  OUTAKE.thread::setPriority(7);
   unitDrive(-0.25); // back up to get space
   // CLAW LEFT YELLOW
   unitArc(1,1,0); // face the goal
@@ -821,48 +857,49 @@ void auton() {
   liftTo(75,0); // raise lift
   // PLATFORM LEFT YELLOW
   turnTo(20,100,500); // fix direction
-  unitArc(1.25,1,0.43); // curve to face the rings
-  unitDrive(0.75);
-  turnTo(-5);
-  unitDrive(1.667,false,0,875); // go into platform
-  Lift.spin(forward,-100,percent);
-  wait(400,msec);
+  unitArc(1.2,1,0.41); // curve to face the rings
+  turnTo(90);
+  unitDrive(1.25,false,0,INF,50); // some rings
+  unitDrive(-0.25); // some rings
+  mogoTilt(TILT_OPEN); // drop the back goal
+  pointAt(-0.05,2.5);
+  turnTo(5);
+  unitDrive(1,false,0,875);
+  driveTo(0,2.5,false,0,0,0,875); // platform it
+  liftTime(-100, 400);
   Claw(CLAW_OPEN); // drop it
   turnTo(20);
   liftTo(70,0); // raise lift a bit
   wait(200,msec);
   // PLATFORM LEFT RED
-  unitArc(-pi / 4, 0.3, 1); // back up
+  unitArc(-0.5,1,0.5);//unitArc(-0.5, 1, 179 / 367, true,false,0,400); // back up
   liftTo(-10,0); // lower lift
-  mogoTilt(TILT_OPEN); // drop it
-  unitDrive(0.333); // leave clearance
-  // switch to claw
-  gyroturn(-180); // turn around
-  unitDrive(1.2,1,3,INF,100,0,0,RED); // claw it
+  turnTo(-165); // face it
+  unitDrive(1.25,1,3,1000,75,false,0,RED); // get it
   // platform it
   liftTo(70,0); // raise lift
-  driveTo(0.65,2.5,0,0,6,0,1500,67); // go there
+  pointAt(0.25,2.5);
+  driveTo(0.25,2.5,false,0,6,0,1300,75); // go there
   Claw(CLAW_OPEN); // drop it
-  liftDeg(10,0); // raise lift
+  //liftDeg(10,0); // raise lift
   wait(200,msec); // dont fall over lol
   // GET RIGHT YELLOW
   turnTo(-20,100);
   unitArc(-0.75, 1, 0.3,true,false,0,1000); // back up + "align"
   liftTo(-10,0);
-  driveTo(0.5,1,true,false,0,0,1000,100,false,0,0,2); // for accuracy
-  //pointAt(1.5, 0, false); // facing it once. 
-  driveTo(1.5, 0, false, 1, 0, 3, 1300, 100, false, 0, YELLOW); // facing it twice. Claw it
-  driveTo(1.5,-1.5); // claw it
+  driveTo(1.5,1,true,false,0,0,1000); // for accuracy
+  turnTo(180);
+  unitDrive(2.5,1,40,INF,100,false,0,YELLOW); // claw it
   // TILT RIGHT RED
   turnTo(-90);
-  unitDrive(-0.75,2,1,1000,75,true, 20, RED); // tilt it
-  liftTo(20,0);
-  turnTo(0); // face rings
+  unitDrive(-1.5,2,1,875,75,true,20,RED); // tilt it
+  liftTo(20,0); // raise lift
+  turnTo(-3); // face rings
   unitDrive(1.5,0,0,INF,67); // rings
   // PLATFORM RIGHT YELLOW
   liftTo(70,0);
-  //pointAt(0.75,2.5);
-  driveTo(0.75,2.5,false,false,12,0,1250,87); // go to platform
+  pointAt(0.3,2.5);
+  driveTo(0.3,2.5,false,0,0,0,1250,87); // go to platform
   wait(200,msec);
   Claw(CLAW_OPEN); // drop it
   // PLATFORM RIGHT RED
@@ -878,32 +915,31 @@ void auton() {
   unitDrive(0.75,1,3,INF,87,true, 75, RED); // get it with claw
   // now platform it
   liftTo(70,0);
-  //pointAt(-0.67,2.5);
-  driveTo(-0.67, 2.5, false, false, 8, 0, 1000, 67); // go to platform
+  pointAt(-0.3, 2.5);
+  driveTo(-0.3, 2.5, false, false, 8, 0, 1000, 67); // go to platform
   Claw(CLAW_OPEN); // drop it
   wait(200,msec);
-  // TILT LEFT BLUE
-  unitDrive(-0.25); // back up
-  turnTo(90); // face it
-  driveTo(-2,1.5,true, 2,-12,1,1500,67,true,20,BLUE); // tilt it
-  unitDrive(-2 - GPS.yPosition(inches) / UNITSIZE,false,0,750,true,20); // back up
-  turnTo(180); // face rings
-  unitDrive(1.5,false,0,1500,50,true,20); // rings
   // CLAW MID
+  unitDrive(-0.75); // back up
   liftTo(-10,0);
-  driveTo(0,0, false, 1, 0,3, INF, 75, true, 90, YELLOW); // claw it
-  liftTo(90,0);
+  pointAt(0,0);
+  driveTo(0,0, false, 1, -4,1, INF, 75, true, 90, YELLOW); // claw it
+  liftTo(7,0);
   // PLATFORM MID
-  //pointAt(0,2.5); // face it once
-	driveTo(0,2, false, 0,0,0, 1300,67); // go to platform
-  liftTime(-100, 333,true); // lower lift. then wait
+  pointAt(-2,2.5,true); // face it once
+	driveTo(-2, 2.5, true,0,0,0,1300,67); // go to platform
+  turnTo(90);
+  liftTo(70, true); // raise lift
+  unitDrive(0.75,false,0,1000,50);
   Claw(CLAW_OPEN); // drop it
-  unitDrive(-0.6667,false,0,1000,50); // back up
+  wait(200,msec);
+  unitDrive(-1,false,0,1000,75); // back up
+  // TILT LEFT BLUE
+  driveTo(-2, 1.5, true, 2, 8, 1, 875, 67, true, 20, BLUE); // tilt it
   // CLAW RIGHT BLUE
-  liftTo(20,0); // lower lift
-  driveTo(2,1); // first movement
+  driveTo(2,1); // go to the other side
 	liftTo(-10,0); // lower lift
-	//pointAt(1.25, 2.5); // face it once
+	pointAt(1.25, 2.5); // face it once
   driveTo(1.25, 2.5, false, 1, 5, 2, 1500, 50, false, 0, BLUE); // face it twice. get it
   // ALIGN FOR BALANCE
   unitDrive(-1); // back up
@@ -937,9 +973,11 @@ void driver() {
   bool ringsOn = false;
   double ticks = 0;
 
+  //thread OUTAKE(outake);
+
   while (true) {
     // drive control
-    OUTAKE.thread::setPriority(1);
+    //OUTAKE.thread::setPriority(1);
 		int rstick=Controller1.Axis2.position();
 		int lstick=Controller1.Axis3.position();
 		drive(lstick, rstick,10);
