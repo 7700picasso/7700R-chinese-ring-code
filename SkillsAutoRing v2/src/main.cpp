@@ -196,18 +196,14 @@ double perpDist(double x1, double y1,double x2, double y2) {
 }
 
 double xPos() {
-  //return Pos.first;
-  // check odometry values
-  if (degToTarget((GPSR.yPosition(inches) + GPSR.yPosition(inches)) / 2, -(GPSR.xPosition(inches) + GPS.xPosition(inches)) / 2, 0, 0) >= 0) {
+  if (degToTarget((GPSR.yPosition(inches) + GPS.yPosition(inches)) / 2, -(GPSR.xPosition(inches) + GPS.xPosition(inches)) / 2, 0, 0) >= 0) {
     return GPSR.yPosition(inches);
   }
   return GPS.yPosition(inches);
 }
 
 double yPos() {
-  // check odometry values
-  //return Pos.second;
-  if (degToTarget((GPSR.yPosition(inches) + GPSR.yPosition(inches)) / 2, -(GPSR.xPosition(inches) + GPS.xPosition(inches)) / 2, 0, 0) >= 0) {
+  if (degToTarget((GPSR.yPosition(inches) + GPS.yPosition(inches)) / 2, -(GPSR.xPosition(inches) + GPS.xPosition(inches)) / 2, 0, 0) >= 0) {
     return -GPSR.xPosition(inches);
   }
   return -GPS.xPosition(inches);
