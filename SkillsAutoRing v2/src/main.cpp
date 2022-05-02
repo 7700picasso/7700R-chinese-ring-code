@@ -196,16 +196,16 @@ double perpDist(double x1, double y1,double x2, double y2) {
 }
 
 double xPos() {
-  if (degToTarget((GPSR.yPosition(inches) + GPS.yPosition(inches)) / 2, -(GPSR.xPosition(inches) + GPS.xPosition(inches)) / 2, 0, 0) >= 0) {
+  //if (degToTarget((GPSR.yPosition(inches) + GPS.yPosition(inches)) / 2, -(GPSR.xPosition(inches) + GPS.xPosition(inches)) / 2, 0, 0) >= 0) {
     return GPSR.yPosition(inches);
-  }
+  //}
   return GPS.yPosition(inches);
 }
 
 double yPos() {
-  if (degToTarget((GPSR.yPosition(inches) + GPS.yPosition(inches)) / 2, -(GPSR.xPosition(inches) + GPS.xPosition(inches)) / 2, 0, 0) >= 0) {
+  //if (degToTarget((GPSR.yPosition(inches) + GPS.yPosition(inches)) / 2, -(GPSR.xPosition(inches) + GPS.xPosition(inches)) / 2, 0, 0) >= 0) {
     return -GPSR.xPosition(inches);
-  }
+  //}
   return -GPS.xPosition(inches);
 }
 
@@ -423,8 +423,8 @@ double getTrackSpeed(uint8_t trackingID = 0, bool back = false) {
   return turnSpeed;
 }
 
-void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = 90, bool raiseMogo = false, double mogoHeight = 100, uint8_t trackingID = 0, double accuracy = 0.25) {
-	double Kp = 10; // was previously 50/3
+void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = 80, bool raiseMogo = false, double mogoHeight = 100, uint8_t trackingID = 0, double accuracy = 0.25) {
+	double Kp = 7; // was previously 50/3
 	double Ki = 1.5; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
@@ -693,7 +693,7 @@ void balance() {
 	}
 }
 
-void gyroturn(double target, double maxSpeed = 90, uint32_t maxTime = 750, double accuracy = 2) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
+void gyroturn(double target, double maxSpeed = 80, uint32_t maxTime = 750, double accuracy = 2) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
   double Kp = 0.6;
   double Ki = 0;
   double Kd = 5;
@@ -716,12 +716,12 @@ void gyroturn(double target, double maxSpeed = 90, uint32_t maxTime = 750, doubl
   }
 }
 
-void turnTo(double target, double maxSpeed = 90, double maxTime = 750, double accuracy = 2) {
+void turnTo(double target, double maxSpeed = 80, double maxTime = 750, double accuracy = 2) {
   gyroturn(mod(target - Gyro.rotation(degrees) - 180, 360) - 180, maxSpeed, maxTime, accuracy);
 }
 
-void pointAt(double x2, double y2, bool Reverse = false, uint32_t maxSpeed = 88, uint32_t maxTime = 750, double x1 = xPos(), double y1 = yPos(), double accuracy = 2) { 
-	// point towards target
+void pointAt(double x2, double y2, bool Reverse = false, uint32_t maxSpeed = 80, uint32_t maxTime = 750, double x1 = xPos(), double y1 = yPos(), double accuracy = 2) { 
+	// point towards targe
   x2 *= UNITSIZE, y2 *= UNITSIZE;
 	double target = degToTarget(x1, y1, x2, y2, Reverse); // I dont trust the gyro for finding the target, and i dont trst the gps with spinning
 	if (fabs(target) < 3) {
@@ -730,10 +730,11 @@ void pointAt(double x2, double y2, bool Reverse = false, uint32_t maxSpeed = 88,
   gyroturn(target,maxSpeed,maxTime,accuracy);
 }
 
-void driveTo(double x2, double y2, bool Reverse = false, uint8_t endClaw = false, double offset = 0, double clawDist = 3, uint32_t maxTime = 4000, double maxSpeed = 90, bool raiseMogo = false, double mogoHeight = 67, uint8_t trackingID = 0, double accuracy = 0.25) {
+void driveTo(double x2, double y2, bool Reverse = false, uint8_t endClaw = false, double offset = 0, double clawDist = 3, uint32_t maxTime = 4000, double maxSpeed = 80, bool raiseMogo = false, double mogoHeight = 67, uint8_t trackingID = 0, bool turn = true, bool correcting = false, double accuracy = 0.25) {
 	// turning
-  pointAt(x2, y2, Reverse, 100, 500, xPos(), yPos(),1.5); // roughly face it and let error correction take over
-
+  if (turn) {
+    pointAt(x2, y2, Reverse, 80, 667, xPos(), yPos(),1.5); // roughly face it and let error correction take over
+  }
   // get positional data
   x2 *= UNITSIZE, y2 *= UNITSIZE;
 
@@ -779,7 +780,9 @@ void driveTo(double x2, double y2, bool Reverse = false, uint8_t endClaw = false
   }
   EndClaw(endClaw); // end claw if this has not been done already.
   brakeDrive(); // then stop*/
-  unitDrive(error / UNITSIZE, endClaw, clawDist, maxTime, maxSpeed, raiseMogo, mogoHeight, trackingID, accuracy);
+  if (!correcting || error > 6) {
+    unitDrive(error / UNITSIZE, endClaw, clawDist, maxTime, maxSpeed, raiseMogo, mogoHeight, trackingID, accuracy);
+  }
 }
 
 void outake() { // i did not spell this correctly but it looks better this way
@@ -830,8 +833,12 @@ void auton() {
 	}
 	Gyro.setRotation(GPS.rotation(degrees) + 90, degrees);
 
-  if (mod(Gyro.rotation(deg), 360) - 90 > 10) { // sanity check
-	  Gyro.setRotation(-90, degrees);
+  if (fabs(mod(Gyro.rotation(deg), 360) + 90) > 5) { // sanity check
+	  Gyro.setRotation(GPSR.rotation(degrees) + 90, degrees);
+
+    if (fabs(mod(Gyro.rotation(deg), 360) + 90) > 5) { // sanity check 2
+	    Gyro.setRotation(-90, degrees);
+    }
   }
   thread OUTAKE(outake);
   OUTAKE.thread::setPriority(1);
@@ -856,26 +863,25 @@ void auton() {
   unitArc(1.2,1,0.41); // curve to face the rings
   turnTo(90);
   unitDrive(1.25,false,0,INF,50); // some rings
-  unitDrive(-0.25); // some rings
+  unitDrive(-0.25,false,0,INF,50); // back up
   mogoTilt(TILT_OPEN); // drop the back goal
-  pointAt(-0.05,2.5);
-  turnTo(5);
+  turnTo(3);
   unitDrive(1,false,0,875);
-  driveTo(0,2.5,false,0,0,0,875); // platform it
+  driveTo(-0.125,2.5,false,0,0,0,875); // platform it
   liftTime(-100, 400);
   Claw(CLAW_OPEN); // drop it
   turnTo(20);
-  liftTo(70,0); // raise lift a bit
-  wait(200,msec);
+  liftTo(75,0); // raise lift a bit
   // PLATFORM LEFT RED
-  unitArc(-0.5,1,0.5);//unitArc(-0.5, 1, 179 / 367, true,false,0,400); // back up
+  unitArc(-0.5,1,0.5);
   liftTo(-10,0); // lower lift
-  turnTo(-165); // face it
+  turnTo(-168); // face it
   unitDrive(1.25,1,3,1000,75,false,0,RED); // get it
   // platform it
   liftTo(70,0); // raise lift
-  pointAt(0.25,2.5);
-  driveTo(0.25,2.5,false,0,6,0,1300,75); // go there
+  turnTo(20);
+  unitDrive(2,false,0,1300,75); // go to platform
+  wait(200,msec);
   Claw(CLAW_OPEN); // drop it
   //liftDeg(10,0); // raise lift
   wait(200,msec); // dont fall over lol
@@ -883,24 +889,26 @@ void auton() {
   turnTo(-20,100);
   unitArc(-0.75, 1, 0.3,true,false,0,1000); // back up + "align"
   liftTo(-10,0);
-  driveTo(1.5,1,true,false,0,0,1000); // for accuracy
+  driveTo(1.55,1,true,false,0,0,1000); // for accuracy
   turnTo(180);
-  unitDrive(2.5,1,40,INF,100,false,0,YELLOW); // claw it
+  driveTo(1.5,-1.5,false,1,0,36,INF,75,false,0,YELLOW,false);
+  //driveTo(1.5,-1.5,false,0,0,0,750,80,false,0,0,true,true); // in case it didn't go far enough
   // TILT RIGHT RED
   turnTo(-90);
-  unitDrive(-1.5,2,1,875,75,true,20,RED); // tilt it
+  unitDrive(-2,2,1,875,75,true,20,RED); // tilt it
   liftTo(20,0); // raise lift
+  unitDrive(0.25);
   turnTo(-3); // face rings
   unitDrive(1.5,0,0,INF,67); // rings
   // PLATFORM RIGHT YELLOW
   liftTo(70,0);
-  pointAt(0.3,2.5);
-  driveTo(0.3,2.5,false,0,0,0,1250,87); // go to platform
+  turnTo(-29.5); // face the platform
+  unitDrive(3.5,false,0,1500); // now go there
   wait(200,msec);
   Claw(CLAW_OPEN); // drop it
   // PLATFORM RIGHT RED
   turnTo(10);
-  unitArc(-0.5,0.25, 1,true,false, 0,875,100,true,-1); // back up
+  unitArc(-0.5,0.25, 1,true,false, 0,875); // back up
   liftTo(-10,0); // lower lift
   turnTo(90,100,1000);
   // swap to claw
@@ -908,30 +916,27 @@ void auton() {
   mogoTilt(TILT_OPEN); // drop it. PLEASE DONT LAND ON A RING. PLEEEEEEAAAAAASSSSSEEE
   unitDrive(0.333); // give clearance
   gyroturn(180); // face it
-  unitDrive(0.75,1,3,INF,87,true, 75, RED); // get it with claw
+  unitDrive(1.5,1,3,INF,87,true, 75, RED); // get it with claw
   // now platform it
   liftTo(70,0);
-  pointAt(-0.3, 2.5);
-  driveTo(-0.3, 2.5, false, false, 8, 0, 1000, 67); // go to platform
-  Claw(CLAW_OPEN); // drop it
+  turnTo(25); // go to platform
+  unitDrive(1.5,false,0,875);
   wait(200,msec);
+  Claw(CLAW_OPEN); // drop it
   // CLAW MID
   unitDrive(-0.75); // back up
   liftTo(-10,0);
   pointAt(0,0);
-  driveTo(0,0, false, 1, -4,1, INF, 75, true, 90, YELLOW); // claw it
-  liftTo(7,0);
+  unitDrive(1.5 * DIAG,1,1,INF,75,true,10,YELLOW); // claw it
+  liftTo(10,0);
   // PLATFORM MID
-  pointAt(-2,2.5,true); // face it once
-	driveTo(-2, 2.5, true,0,0,0,1300,67); // go to platform
-  turnTo(90);
-  liftTo(70, true); // raise lift
-  unitDrive(0.75,false,0,1000,50);
+  turnTo(-3);
+  unitDrive(4,false,0,1750,75,true,90); // go to platform
+  wait(400,msec); // wait
   Claw(CLAW_OPEN); // drop it
-  wait(200,msec);
   unitDrive(-1,false,0,1000,75); // back up
   // TILT LEFT BLUE
-  driveTo(-2, 1.5, true, 2, 8, 1, 875, 67, true, 20, BLUE); // tilt it
+  driveTo(-2, 1.5, true, 2, 4, 1, 1300, 75, true, 20, BLUE); // tilt it
   // CLAW RIGHT BLUE
   driveTo(2,1); // go to the other side
 	liftTo(-10,0); // lower lift
@@ -939,7 +944,8 @@ void auton() {
   driveTo(1.25, 2.5, false, 1, 5, 2, 1500, 50, false, 0, BLUE); // face it twice. get it
   // ALIGN FOR BALANCE
   unitDrive(-1); // back up
-  driveTo(2,-3,false,0,0,0,1500,100,true,67); // go mostly there
+  pointAt(2,-3); // face it once
+  driveTo(2,-3,false,0,0,0,1750,100,true,67,0,false); // align using wall 
   unitDrive(-0.1); // back up
   gyroturn(90); // point straight at the platform
   // Lower the platform
