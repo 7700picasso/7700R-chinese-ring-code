@@ -55,7 +55,7 @@ const double pi = 3.141592653589793238462643383279502884197169399375105820974944
 #define MOGO_DIST 5
 #define NOTE str = 
 #define INF 4294967295
-#define CLAW_OPEN false
+#define CLAW_OPEN true
 #define TILT_OPEN false
 #define FORK_DOWN true
 #define LIFT_UP 66
@@ -454,7 +454,7 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
     doThePIDThing
     speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
 
-    turnSpeed = (error - clawDist < 48 && error - clawDist > 0) * (endClaw == 2 ? -1 : 1) * getTrackSpeed(trackingID, endClaw == 2); // follow mogo if you want to
+    turnSpeed = (error - clawDist < 48 && ((claw1.value() == CLAW_OPEN && endClaw == 1) || (MogoTilt.value() == TILT_OPEN && endClaw == 2))) * (endClaw == 2 ? -1 : 1) * getTrackSpeed(trackingID, endClaw == 2); // follow mogo if you want to
 
     drive(speed + turnSpeed, speed - turnSpeed, 10);
     olderror = error;
@@ -493,7 +493,7 @@ void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc 
   bool isOpen;
 	bool lifted = false;
 	 
-  while((fabs(error) > accuracy || fabs(speed) > 10) && timer::system() - startTime < maxTime) {
+  while((fabs(error) > accuracy) && timer::system() - startTime < maxTime) {
     // did this late at night but this while is important 
     error = target - wheelRevs(1) * Diameter * pi; //the error gets smaller when u reach ur target
     doThePIDThing
@@ -854,7 +854,7 @@ void auton() {
   OUTAKE.thread::setPriority(7);
   unitDrive(-0.25); // back up to get space
   // CLAW LEFT YELLOW
-  unitArc(1,1,0); // face the goal
+  unitArc(1,1,0,true,false,0,INF); // face the goal
   Lift.spin(forward,-100,percent); // lower lift
   unitDrive(2.1,1,3,1500,87,true,80,YELLOW); // get it
   liftTo(75,0); // raise lift
@@ -867,10 +867,9 @@ void auton() {
   mogoTilt(TILT_OPEN); // drop the back goal
   turnTo(3);
   unitDrive(1,false,0,875);
-  driveTo(-0.125,2.5,false,0,0,0,875); // platform it
   liftTime(-100, 400);
   Claw(CLAW_OPEN); // drop it
-  turnTo(20);
+  turnTo(20); // what's this even for 
   liftTo(75,0); // raise lift a bit
   // PLATFORM LEFT RED
   unitArc(-0.5,1,0.5);
@@ -889,13 +888,13 @@ void auton() {
   turnTo(-20,100);
   unitArc(-0.75, 1, 0.3,true,false,0,1000); // back up + "align"
   liftTo(-10,0);
-  driveTo(1.55,1,true,false,0,0,1000); // for accuracy
+  driveTo(1.53,1,true,false,0,0,1000); // for accuracy
   turnTo(180);
-  driveTo(1.5,-1.5,false,1,0,36,INF,75,false,0,YELLOW,false);
-  //driveTo(1.5,-1.5,false,0,0,0,750,80,false,0,0,true,true); // in case it didn't go far enough
+  unitDrive(1.5,1,2,INF,80,false,0,YELLOW);
+  driveTo(1.5,-1.55,false,1,0,36,INF,80);
   // TILT RIGHT RED
   turnTo(-90);
-  unitDrive(-2,2,1,875,75,true,20,RED); // tilt it
+  unitDrive(-2.5,2,1,1000,75,true,20,RED); // tilt it
   liftTo(20,0); // raise lift
   unitDrive(0.25);
   turnTo(-3); // face rings
@@ -926,26 +925,28 @@ void auton() {
   // CLAW MID
   unitDrive(-0.75); // back up
   liftTo(-10,0);
-  pointAt(0,0);
-  unitDrive(1.5 * DIAG,1,1,INF,75,true,10,YELLOW); // claw it
+  driveTo(0,0,false,1,0,1,INF,80,true,10,YELLOW); // get it
   liftTo(10,0);
   // PLATFORM MID
   turnTo(-3);
-  unitDrive(4,false,0,1750,75,true,90); // go to platform
-  wait(400,msec); // wait
+  liftTo(90,500);
+  unitDrive(4,false,0,2000,80,true,90); // go to platform
+  liftTime(-100, 500,true);
   Claw(CLAW_OPEN); // drop it
-  unitDrive(-1,false,0,1000,75); // back up
   // TILT LEFT BLUE
-  driveTo(-2, 1.5, true, 2, 4, 1, 1300, 75, true, 20, BLUE); // tilt it
+  unitDrive(-0.333);
+  turnTo(90);
+  unitDrive(-2,2,1,2000,80,false,0,BLUE);
+  driveTo(-2, 1.5, true, 2, 0, 1, 1300, 75, true, 20, BLUE); // tilt it
   // CLAW RIGHT BLUE
   driveTo(2,1); // go to the other side
 	liftTo(-10,0); // lower lift
 	pointAt(1.25, 2.5); // face it once
   driveTo(1.25, 2.5, false, 1, 5, 2, 1500, 50, false, 0, BLUE); // face it twice. get it
   // ALIGN FOR BALANCE
-  unitDrive(-1); // back up
-  pointAt(2,-3); // face it once
-  driveTo(2,-3,false,0,0,0,1750,100,true,67,0,false); // align using wall 
+  unitDrive(-DIAG); // back up
+  turnTo(180);
+  unitDrive(5,false,0,2000,100,true,67);
   unitDrive(-0.1); // back up
   gyroturn(90); // point straight at the platform
   // Lower the platform
