@@ -23,16 +23,6 @@ digital_out MogoTilt = digital_out(Brain.ThreeWirePort.C);
 digital_out Forklift = digital_out(Brain.ThreeWirePort.F);
 motor Rings = motor(PORT20, ratio6_1, false);
 digital_out claw1 = digital_out(Brain.ThreeWirePort.E);
-/*vex-vision-config:begin*/
-signature Vision__MOGO_RED = signature (1, 8017, 9845, 8931, 393, 1153, 773, 5.2, 0);
-signature Vision__MOGO_BLUE = signature (2, -3139, -2349, -2744, 8913, 13233, 11073, 2.7, 0);
-signature Vision__MOGO_YELLOW = signature (3, 1117, 2153, 1636, -2853, -2167, -2510, 4.3, 0);
-signature Vision__SIG_4 = signature (4, 0, 0, 0, 0, 0, 0, 3, 0);
-vision Vision = vision (PORT19, 50, Vision__MOGO_RED, Vision__MOGO_BLUE, Vision__MOGO_YELLOW, Vision__SIG_4);
-/*vex-vision-config:end*/
-/*vex-vision-config:begin*/
-vision VisionBack = vision (PORT12, 50);
-/*vex-vision-config:end*/
 gps GPSR = gps(PORT18, 177.00, -110.00, mm, 90);
 
 // VEXcode generated functions

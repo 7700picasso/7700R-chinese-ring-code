@@ -32,13 +32,12 @@
 // Rings                motor         20              
 // claw1                digital_out   E               
 // Stalker              distance      7               
-// VisionBack           vision        12              
-// Vision               vision        19              
 // Trigger1             limit         G               
 // Trigger2             limit         H               
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
+#include "Vision.h"
 #include <math.h>
 #include <array>
 
@@ -72,6 +71,10 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 	sum = sum * decay + error;                                       \
 	speed = Kp * error + Ki * sum + Kd * (error - olderror);
 
+#define RED 1
+#define BLUE 2
+#define YELLOW 3
+
 // for red comments
 
 void pre_auton(void) {
@@ -82,12 +85,6 @@ void pre_auton(void) {
 	claw1.set(CLAW_OPEN);
   MogoTilt.set(TILT_OPEN);
   Lift.setStopping(hold);
-  // configure the vision sensors
-  signature Vision__MOGO_RED = signature (1, 8017, 9845, 8931, 393, 1153, 773, 5.2, 0);
-  signature Vision__MOGO_BLUE = signature (2, -3139, -2349, -2744, 8913, 13233, 11073, 2.7, 0);
-  signature Vision__MOGO_YELLOW = signature (3, 1117, 2153, 1636, -2853, -2167, -2510, 4.3, 0);
-  Vision = vision (PORT19, 50, Vision__MOGO_RED, Vision__MOGO_BLUE, Vision__MOGO_YELLOW);
-  VisionBack = vision (PORT12, 50, Vision__MOGO_RED, Vision__MOGO_BLUE, Vision__MOGO_YELLOW);
   wait(2000, msec);
 
   // All activities that occur before the competition starts
@@ -300,8 +297,8 @@ void liftTime(int speed, int duration, bool stop = false) {
 }
 
 void liftWait(double target, uint32_t maxTime = INF) {
-  uint32_t startTime = vex::timer::system();
-  while (Lift.position(degrees) * 7 > target && vex::timer::system() - startTime < maxTime) {
+  uint32_t startTime = timer::system();
+  while (Lift.position(degrees) * 7 > target && timer::system() - startTime < maxTime) {
     wait(10, msec);
   }
 }
@@ -353,12 +350,61 @@ void EndClaw(uint8_t clawID, double clawDist = 0, double error = 0) {
     }
   }
 }
+double getTrackSpeed(uint8_t trackingID = 0, bool back = false) {
+  if (trackingID > 0 && trackingID < 4) {
+    switch (trackingID) {
+      case RED:
+        if (back) {
+          VisionBack.takeSnapshot(MOGO_RED);
+        }
+        else {
+          Vision.takeSnapshot(MOGO_RED);
+        }
+        break;
+      case BLUE:
+        if (back) {
+          VisionBack.takeSnapshot(MOGO_BLUE);
+        }
+        else {
+          Vision.takeSnapshot(MOGO_BLUE);
+        }
+        break;
+      case YELLOW: 
+        if (back) {
+          VisionBack.takeSnapshot(MOGO_YELLOW);
+        }
+        else {
+          Vision.takeSnapshot(MOGO_YELLOW);
+        }
+        break;
+    }
+  }
+  else {
+    Brain.Screen.drawCircle(240, 136, 100,black);
+    return 0;
+  }
+  Brain.Screen.drawCircle(240, 136, 100,red);
+  double turnSpeed = 0;
+  bool exists = (!back && Vision.largestObject.exists && Vision.largestObject.width > 20) || (back && Vision.largestObject.exists && Vision.largestObject.width > 20);
+  if (exists) {
+    // get position
+    const double center = 158;
+    const double Kp = 0.3;
+    // Then get the turning speed with proportionality
+    const double centerX = back ? VisionBack.largestObject.centerX : Vision.largestObject.centerX;
+    turnSpeed = Kp * (centerX - center);
+    Brain.Screen.drawCircle(240, 136, 100,green);
+    //
+  }
+  return turnSpeed;
+}
 
-void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
-	double Kp = 13; // was previously 50/3
+void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, uint8_t trackingID = 0, double accuracy = 0.25) {
+	double Kp = 10 + 3 * (maxSpeed == 101); // was previously 50/3
 	double Ki = 1.5; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
+  double turnSpeed = 0;
 	
 	target *= UNITSIZE; // convert UNITS to inches
 	
@@ -366,80 +412,38 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
 	volatile double error = target;
 	volatile double olderror = error;
 	 
-  leftDrive1.setPosition(0, rev);
-	leftDrive2.setPosition(0, rev);
-  leftmiddle.setPosition(0, rev);
-  rightDrive1.setPosition(0, rev);
-  rightDrive2.setPosition(0, rev);
-  rightmiddle.setPosition(0, rev);
+  leftDrive1.resetPosition();
+	leftDrive2.resetPosition();
+  leftmiddle.resetPosition();
+  rightDrive1.resetPosition();
+  rightDrive2.resetPosition();
+  rightmiddle.resetPosition();
 	 
   volatile double sum = 0;
-  uint32_t startTime = vex::timer::system();
+  uint32_t startTime = timer::system();
   bool isOpen;
+  bool lifted = false;
 
-  while((fabs(error) > accuracy || fabs(speed) > 10) && (vex::timer::system() - startTime < maxTime || fabs(error) > 18)) {
+  
+  while((fabs(error) > accuracy || fabs(speed) > 10) && timer::system() - startTime < maxTime) {
     // did this late at night but this while is important 
     error = target - wheelRevs(0) * Diameter * pi; //the error gets smaller when u reach ur target
-    sum = sum * decay + error;
-    speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
+    doThePIDThing
     speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
-    drive(speed, speed, 10);
+
+    turnSpeed = (error - clawDist < 48 && ((claw1.value() == CLAW_OPEN && endClaw == 1) || (MogoTilt.value() == TILT_OPEN && endClaw == 2))) * (endClaw == 2 ? -1 : 1) * getTrackSpeed(trackingID, endClaw == 2); // follow mogo if you want to
+
+    drive(speed + turnSpeed, speed - turnSpeed, 10);
     olderror = error;
     isOpen = target > 0 ? claw1.value() == CLAW_OPEN : MogoTilt.value() == TILT_OPEN;
     EndClaw(endClaw, clawDist, error);
-    if (raiseMogo && !isOpen && (error + 6 < clawDist) && Lift.position(degrees) < 10) {
-      if (Lift.position(deg) < -70) {
-        Lift.setPosition(0, deg);
-      }
+    if (raiseMogo && ((!isOpen && (error + 6 < clawDist)) || endClaw != 1) && !lifted) {
       liftTo(mogoHeight,0);
+			lifted = true;
     }
   }
 	brakeDrive();
   EndClaw(endClaw);
-}
-void rushGoal(double target, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
-	double Kp = 10; // was previously 50/3
-	double Ki = 1.5; // to increase speed if its taking too long.
-	double Kd = 20; // was previously 40/3
-	double decay = 0.5; // integral decay
-	
-	target *= UNITSIZE; // convert UNITS to inches
-	
-	volatile double speed;
-	volatile double error = Stalker.objectDistance(inches) - 3;
-	volatile double olderror = error;
-	 
-  leftDrive1.setPosition(0, rev);
-	leftDrive2.setPosition(0, rev);
-  leftmiddle.setPosition(0, rev);
-  rightDrive1.setPosition(0, rev);
-  rightDrive2.setPosition(0, rev);
-  rightmiddle.setPosition(0, rev);
-	 
-  volatile double sum = 0;
-  uint32_t startTime = vex::timer::system();
-  bool isOpen;
-
-  while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
-    // did this late at night but this while is important 
-    error = Stalker.objectDistance(inches) - 3; //the error gets smaller when u reach ur target
-    sum = sum * decay + error;
-    speed = Kp * error + Ki * sum + Kd * (error - olderror); // big error go fast slow error go slow 
-    speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
-    drive(speed, speed, 10);
-    olderror = error;
-    isOpen = claw1.value() == CLAW_OPEN;
-    if (!isOpen && error < 3.5) {
-      Claw(!CLAW_OPEN);
-    }
-    if (raiseMogo && !isOpen && Lift.position(degrees) < 10) {
-      if (Lift.position(deg) < -70) {
-        Lift.setPosition(0,deg);
-      }
-      liftTo(mogoHeight,0);
-    }
-  }
-	brakeDrive();
 }
 
 void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc = true, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
@@ -454,18 +458,18 @@ void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc 
 	volatile double error = target;
 	volatile double olderror = error;
 	 
-  leftDrive1.setPosition(0, rev);
-	leftDrive2.setPosition(0, rev);
-  leftmiddle.setPosition(0, rev);
-  rightDrive1.setPosition(0, rev);
-  rightDrive2.setPosition(0, rev);
-  rightmiddle.setPosition(0, rev);
+  leftDrive1.resetPosition();
+	leftDrive2.resetPosition();
+  leftmiddle.resetPosition();
+  rightDrive1.resetPosition();
+  rightDrive2.resetPosition();
+  rightmiddle.resetPosition();
 	 
   volatile double sum = 0;
-  uint32_t startTime = vex::timer::system();
+  uint32_t startTime = timer::system();
   bool isOpen;
 	 
-  while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
+  while((fabs(error) > accuracy || fabs(speed) > 10) && timer::system() - startTime < maxTime) {
     // did this late at night but this while is important 
     error = target - wheelRevs(1) * Diameter * pi; //the error gets smaller when u reach ur target
     sum = sum * decay + error;
@@ -497,18 +501,18 @@ void arcTurn(double target, double propLeft=1, double propRight=1, bool endClaw 
 	volatile double error = target;
 	volatile double olderror = error;
 	 
-  leftDrive1.setPosition(0, rev);
-	leftDrive2.setPosition(0, rev);
-  leftmiddle.setPosition(0, rev);
-  rightDrive1.setPosition(0, rev);
-  rightDrive2.setPosition(0, rev);
-  rightmiddle.setPosition(0, rev);
+  leftDrive1.resetPosition();
+	leftDrive2.resetPosition();
+  leftmiddle.resetPosition();
+  rightDrive1.resetPosition();
+  rightDrive2.resetPosition();
+  rightmiddle.resetPosition();
 	 
   volatile double sum = 0;
-  uint32_t startTime = vex::timer::system();
+  uint32_t startTime = timer::system();
   bool isOpen;
 	 
-  while((fabs(error) > accuracy || fabs(speed) > 10) && vex::timer::system() - startTime < maxTime) {
+  while((fabs(error) > accuracy || fabs(speed) > 10) && timer::system() - startTime < maxTime) {
     // did this late at night but this while is important 
     error = target - dir(Gyro.rotation(deg)); // the error gets smaller when u reach ur target
     sum = sum * decay + error;
@@ -576,16 +580,16 @@ void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, u
 	x2 *= UNITSIZE; // convert UNITS to inches
   y2 *= UNITSIZE; // convert UNITS to inches
 	 
-  leftDrive1.setPosition(0, rev);
-	leftDrive2.setPosition(0, rev);
-  leftmiddle.setPosition(0, rev);
-  rightDrive1.setPosition(0, rev);
-  rightDrive2.setPosition(0, rev);
-  rightmiddle.setPosition(0, rev);
+  leftDrive1.resetPosition();
+	leftDrive2.resetPosition();
+  leftmiddle.resetPosition();
+  rightDrive1.resetPosition();
+  rightDrive2.resetPosition();
+  rightmiddle.resetPosition();
 	 
-  uint32_t startTime = vex::timer::system();
+  uint32_t startTime = timer::system();
 
-  while (fabs(error) > 0.5 && vex::timer::system() - startTime < maxTime) {
+  while (fabs(error) > 0.5 && timer::system() - startTime < maxTime) {
     // get base speed
     sum = decay * sum + error;
     speed = Kp * error + Ki * sum + Kd * (error - olderror);
@@ -639,9 +643,9 @@ void balance() { // WIP
 
   uint8_t lastTip = sgn(pitch);
   bool wasTipping = true;
-  volatile uint32_t startTime = vex::timer::system();
+  volatile uint32_t startTime = timer::system();
   double stopAng = 20;
-  while (vex::timer::system() - startTime < 1300) {
+  while (timer::system() - startTime < 1300) {
     pitch = Gyro.pitch(degrees);
     speed = Kp * pitch;
 
@@ -655,7 +659,7 @@ void balance() { // WIP
         speed *= Kt * (underCount - overCount) - backCoef;
         drive(speed, speed, 30); // Back up bc it has already overshot
       }
-      startTime = vex::timer::system();
+      startTime = timer::system();
     }
     else {
       brakeDrive();
@@ -708,11 +712,11 @@ void gyroturn(double target, double maxSpeed = 87.5, uint32_t maxTime = 1500, do
   volatile double speed;
   volatile double error = target;
   volatile double olderror = error;
-  uint32_t startTime = vex::timer::system();
+  uint32_t startTime = timer::system();
 
   target += Gyro.rotation(degrees);
 
-  while ((fabs(error) > accuracy || fabs(speed) > 1) && vex::timer::system() - startTime < maxTime) { //fabs = absolute value while loop again
+  while ((fabs(error) > accuracy || fabs(speed) > 1) && timer::system() - startTime < maxTime) { //fabs = absolute value while loop again
     error = target - Gyro.rotation(degrees);; //error gets smaller closer you get,robot slows down
     doThePIDThing
     speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
@@ -745,13 +749,14 @@ void auton() {
   mogoTilt(TILT_OPEN);
   //Fork(!FORK_DOWN); // forklift folds up
   // SIDE
-  Lift.spin(forward, -100, pct);
-  unitDrive(1.72,1,1,1000);
-  unitDrive(-2, 0, 0, 1500); // back up. This may take a while if we're playing tuggle war. We have plenty of time at this point.
+  Lift.spin(forward, -100, pct); // lower lift
+  unitDrive(1.72,1,1,1000,101,false,0,YELLOW);
+  unitDrive(-2, 0, 0, 1500,101,true,10); // back up. This may take a while if we're playing tuggle war. We have plenty of time at this point.
   Gyro.resetRotation();
   // ALLIANCE
   gyroturn(-83);
-  unitDrive(-0.75, 2, 3,750,30,true,30); // tilt alliance goal
+  VisionBack.takeSnapshot(BLUE); // determine which side we're on
+  unitDrive(-0.75, 2, 3,750,67,true,30,(VisionBack.largestObject.exists ? BLUE : RED)); // tilt alliance goal
   rings(true); // start intake
   liftTo(30,0);
   // RINGS

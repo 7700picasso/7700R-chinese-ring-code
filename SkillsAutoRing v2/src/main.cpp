@@ -32,12 +32,11 @@
 // Forklift             digital_out   F               
 // Rings                motor         20              
 // claw1                digital_out   E               
-// Vision               vision        19              
-// VisionBack           vision        12              
 // GPSR                 gps           18              
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
+#include "Vision.h"
 #include <math.h>
 #include <array>
 
@@ -87,7 +86,6 @@ void pre_auton(void) {
 	claw1.set(CLAW_OPEN);
   MogoTilt.set(TILT_OPEN);
   // redefine vision back so that i dont have to delete the device list.
-  VisionBack = vision (PORT12, 50, Vision__MOGO_RED, Vision__MOGO_BLUE, Vision__MOGO_YELLOW);
   wait(2000, msec);
 
   // All activities that occur before the competition starts
@@ -132,7 +130,8 @@ double cot(double x) {
   return mod(x, 180) != 0 ? tan(90 - x) : INF;
 }
 
-std::array<double,2> calcArc(double dx, double dy, double theta = 90 - Gyro.rotation(deg), double w = WIDTH / 2) {
+// "reverse odometry" (path following but nerfed)
+std::array<double,2> revOdom(double dx, double dy, double theta = 90 - Gyro.rotation(deg), double w = WIDTH / 2) {
 	double targetDir = atan2(dy, dx) DEG, oX, oY;
 	
   if (mod(theta,180) != mod(targetDir, 180)) {
@@ -379,26 +378,26 @@ double getTrackSpeed(uint8_t trackingID = 0, bool back = false) {
     switch (trackingID) {
       case RED:
         if (back) {
-          VisionBack.takeSnapshot(Vision__MOGO_RED);
+          VisionBack.takeSnapshot(MOGO_RED);
         }
         else {
-          Vision.takeSnapshot(Vision__MOGO_RED);
+          Vision.takeSnapshot(MOGO_RED);
         }
         break;
       case BLUE:
         if (back) {
-          VisionBack.takeSnapshot(Vision__MOGO_BLUE);
+          VisionBack.takeSnapshot(MOGO_BLUE);
         }
         else {
-          Vision.takeSnapshot(Vision__MOGO_BLUE);
+          Vision.takeSnapshot(MOGO_BLUE);
         }
         break;
       case YELLOW: 
         if (back) {
-          VisionBack.takeSnapshot(Vision__MOGO_YELLOW);
+          VisionBack.takeSnapshot(MOGO_YELLOW);
         }
         else {
-          Vision.takeSnapshot(Vision__MOGO_YELLOW);
+          Vision.takeSnapshot(MOGO_YELLOW);
         }
         break;
     }
@@ -437,12 +436,12 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
 	volatile double error = target;
 	volatile double olderror = error;
 	 
-  leftDrive1.setPosition(0, rev);
-	leftDrive2.setPosition(0, rev);
-  leftmiddle.setPosition(0, rev);
-  rightDrive1.setPosition(0, rev);
-  rightDrive2.setPosition(0, rev);
-  rightmiddle.setPosition(0, rev);
+  leftDrive1.resetPosition();
+	leftDrive2.resetPosition();
+  leftmiddle.resetPosition();
+  rightDrive1.resetPosition();
+  rightDrive2.resetPosition();
+  rightmiddle.resetPosition();
 	 
   volatile double sum = 0;
 	uint32_t startTime = timer::system();
@@ -481,12 +480,12 @@ void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc 
 	volatile double error = target;
 	volatile double olderror = error;
 	 
-  leftDrive1.setPosition(0, rev);
-	leftDrive2.setPosition(0, rev);
-  leftmiddle.setPosition(0, rev);
-  rightDrive1.setPosition(0, rev);
-  rightDrive2.setPosition(0, rev);
-  rightmiddle.setPosition(0, rev);
+  leftDrive1.resetPosition();
+	leftDrive2.resetPosition();
+  leftmiddle.resetPosition();
+  rightDrive1.resetPosition();
+  rightDrive2.resetPosition();
+  rightmiddle.resetPosition();
 	 
   volatile double sum = 0;
   uint32_t startTime = timer::system();
@@ -525,12 +524,12 @@ void arcTurn(double target, double propLeft=1, double propRight=1, bool endClaw 
 	volatile double error = target;
 	volatile double olderror = error;
 	 
-  leftDrive1.setPosition(0, rev);
-	leftDrive2.setPosition(0, rev);
-  leftmiddle.setPosition(0, rev);
-  rightDrive1.setPosition(0, rev);
-  rightDrive2.setPosition(0, rev);
-  rightmiddle.setPosition(0, rev);
+  leftDrive1.resetPosition();
+	leftDrive2.resetPosition();
+  leftmiddle.resetPosition();
+  rightDrive1.resetPosition();
+  rightDrive2.resetPosition();
+  rightmiddle.resetPosition();
 	 
   volatile double sum = 0;
   uint32_t startTime = timer::system();
@@ -556,7 +555,7 @@ void arcTurn(double target, double propLeft=1, double propRight=1, bool endClaw 
 
 void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
   x2 *= UNITSIZE, y2 *= UNITSIZE;
-  std::array<double, 2> arc = calcArc(x2, y2);
+  std::array<double, 2> arc = revOdom(x2, y2);
   std::pair<double, double> pos = {0, 0};
   double Kp = 10; // was previously 50/3
 	double Ki = 1; // to increase speed if its taking too long.
@@ -602,12 +601,12 @@ void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, u
   ∆y = r[sin(θ') + cos(θ)]
   */
 	 
-  leftDrive1.setPosition(0, rev);
-	leftDrive2.setPosition(0, rev);
-  leftmiddle.setPosition(0, rev);
-  rightDrive1.setPosition(0, rev);
-  rightDrive2.setPosition(0, rev);
-  rightmiddle.setPosition(0, rev);
+  leftDrive1.resetPosition();
+	leftDrive2.resetPosition();
+  leftmiddle.resetPosition();
+  rightDrive1.resetPosition();
+  rightDrive2.resetPosition();
+  rightmiddle.resetPosition();
 	 
   uint32_t startTime = timer::system();
 
@@ -632,7 +631,7 @@ void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, u
     R[0] = wheelRevs(3);
     int idx = 1;
     pos = odom((L[0] - L[idx]) * Diameter * pi, (R[0] - R[idx]) * Diameter * pi, theta);
-    arc = calcArc(x2 - pos.first, y2 - pos.second);
+    arc = revOdom(x2 - pos.first, y2 - pos.second);
     olderror = error;
     error = fabs(arc[0]) > fabs(arc[1]) ? arc[0] : arc[1];
     L[1] = L[0];
