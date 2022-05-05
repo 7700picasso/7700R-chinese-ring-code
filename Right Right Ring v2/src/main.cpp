@@ -70,7 +70,7 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define RAD * pi / 180
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
-#define RING_SPEED 85
+#define RING_SPEED 77
 #define RED 1
 #define BLUE 2
 #define YELLOW 3
@@ -87,8 +87,14 @@ void pre_auton(void) {
   //picasso.set(false);
 	claw1.set(CLAW_OPEN);
   MogoTilt.set(TILT_OPEN);
+  Lift.setStopping(hold); // WAIT WHY WAS THIS SO LATE
+  // configure vision sensors here.
+  signature Vision__MOGO_RED = signature (1, 8017, 9845, 8931, 393, 1153, 773, 5.2, 0);
+  signature Vision__MOGO_BLUE = signature (2, -3139, -2349, -2744, 8913, 13233, 11073, 2.7, 0);
+  signature Vision__MOGO_YELLOW = signature (3, 1117, 2153, 1636, -2853, -2167, -2510, 4.3, 0);
+  Vision = vision (PORT19, 50, Vision__MOGO_RED, Vision__MOGO_BLUE, Vision__MOGO_YELLOW);
+  VisionBack = vision (PORT12, 50, Vision__MOGO_RED, Vision__MOGO_BLUE, Vision__MOGO_YELLOW);
   wait(2000, msec);
-  Lift.setStopping(hold);
 
   // All activities that occur before the competition starts
   // gets pistons down before match
@@ -155,11 +161,11 @@ std::array<long double,2> calcArc(double dx, double dy, double theta = 90 - Gyro
 			double n = -dx / dy;
 			double c = (dx * dx + dy * dy) / (2 * dy);
 
-			double oX = c / (m - n);
-			double oY = n * oX + c;
+			oX = c / (m - n);
+			oY = n * oX + c;
 		}
 		else {
-			double oX = dx / 2, oY = m * oX; // i calculated this limit
+			oX = dx / 2, oY = m * oX; // i calculated this limit
 		}
     double r = sgn(dir(atan2(dy, dx) DEG - theta)) * sqrt(oX * oX + oY * oY);
     double deltaTheta = dir(2 * (atan2(-dy, -dx) DEG - theta));

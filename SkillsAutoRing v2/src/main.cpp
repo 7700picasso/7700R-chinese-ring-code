@@ -50,7 +50,7 @@ competition Competition;
 char *str = "";
 const double pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825; // much more accurate than 3.14. accurate enough to go across the universe and be within an atom of error
 
-#define Diameter 28 / 5
+#define Diameter 28 / 5 // wheel diameter with added gear ratio
 #define UNITSIZE 23.75 // tile size
 #define MOGO_DIST 5
 #define NOTE str = 
@@ -66,7 +66,7 @@ const double pi = 3.141592653589793238462643383279502884197169399375105820974944
 #define RAD * pi / 180
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
-#define RING_SPEED 85
+#define RING_SPEED 77
 #define RED 1
 #define BLUE 2
 #define YELLOW 3
@@ -86,13 +86,13 @@ void pre_auton(void) {
   //picasso.set(false);
 	claw1.set(CLAW_OPEN);
   MogoTilt.set(TILT_OPEN);
+  // redefine vision back so that i dont have to delete the device list.
+  VisionBack = vision (PORT12, 50, Vision__MOGO_RED, Vision__MOGO_BLUE, Vision__MOGO_YELLOW);
   wait(2000, msec);
 
   // All activities that occur before the competition starts
   // gets pistons down before match
   // dont touch this 
-	
-	// BOOOOOOP whoops i touched it
 }
 
 double wheelRevs(uint8_t idx) {    
@@ -103,10 +103,10 @@ double wheelRevs(uint8_t idx) {
   double counts[4] = {rots[0],rots[0],rots[0],rots[3]};
   
   for (uint8_t i = 1; i < 6; i++) {
-    if (rots[i] < counts[0]) {
+    if (fabs(rots[i]) < fabs(counts[0])) {
       counts[0] = rots[i];
     }
-    if (rots[i] > counts[1]) {
+    if (fabs(rots[i]) > fabs(counts[1])) {
       counts[1] = rots[i];
     }
   }
@@ -157,7 +157,7 @@ std::array<double,2> calcArc(double dx, double dy, double theta = 90 - Gyro.rota
   }
 }
 
-std::pair<double, double> calcPos(double dL, double dR, double theta = 90 - Gyro.rotation(deg), double w = WIDTH / 2) {
+std::pair<double, double> odom(double dL, double dR, double theta = 90 - Gyro.rotation(deg), double w = WIDTH / 2) {
   if (dL != dR) {
     double r = w * (dR + dL) / (dR - dL);
     double theta2 = 90 * (dR - dL) / pi / w + theta - 90;
@@ -243,7 +243,7 @@ void drive(int lspeed, int rspeed, int wt){
   R = (rightDrive1.position(deg) + rightDrive2.position(deg) + rightmiddle.position(deg) - R) / 3 * Diameter * pi; // get average change on right side
 
   // odometry
-  std::pair<double,double> dPos = calcPos(L,R);
+  std::pair<double,double> dPos = odom(L,R);
   Pos.first += dPos.first;
   Pos.second += dPos.second;
 }
@@ -423,8 +423,8 @@ double getTrackSpeed(uint8_t trackingID = 0, bool back = false) {
   return turnSpeed;
 }
 
-void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = 80, bool raiseMogo = false, double mogoHeight = 100, uint8_t trackingID = 0, double accuracy = 0.25) {
-	double Kp = 7; // was previously 50/3
+void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = 85, bool raiseMogo = false, double mogoHeight = 100, uint8_t trackingID = 0, double accuracy = 0.25) {
+	double Kp = 7.5; // was previously 50/3
 	double Ki = 1.5; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
@@ -631,7 +631,7 @@ void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, u
     L[0] = wheelRevs(2);
     R[0] = wheelRevs(3);
     int idx = 1;
-    pos = calcPos((L[0] - L[idx]) * Diameter * pi, (R[0] - R[idx]) * Diameter * pi, theta);
+    pos = odom((L[0] - L[idx]) * Diameter * pi, (R[0] - R[idx]) * Diameter * pi, theta);
     arc = calcArc(x2 - pos.first, y2 - pos.second);
     olderror = error;
     error = fabs(arc[0]) > fabs(arc[1]) ? arc[0] : arc[1];
@@ -675,6 +675,9 @@ void balance() {
 					Controller1.Screen.setCursor(0,0);
 					Controller1.Screen.print(back);
 				}
+        else {
+          startTime = timer::system();
+        }
         if (timer::system() - startTime > 1000) {
           return;
         }
@@ -730,7 +733,7 @@ void pointAt(double x2, double y2, bool Reverse = false, uint32_t maxSpeed = 80,
   gyroturn(target,maxSpeed,maxTime,accuracy);
 }
 
-void driveTo(double x2, double y2, bool Reverse = false, uint8_t endClaw = false, double offset = 0, double clawDist = 3, uint32_t maxTime = 4000, double maxSpeed = 80, bool raiseMogo = false, double mogoHeight = 67, uint8_t trackingID = 0, bool turn = true, bool correcting = false, double accuracy = 0.25) {
+void driveTo(double x2, double y2, bool Reverse = false, uint8_t endClaw = false, double offset = 0, double clawDist = 3, uint32_t maxTime = 3000, double maxSpeed = 85, bool raiseMogo = false, double mogoHeight = 67, uint8_t trackingID = 0, bool turn = true, bool correcting = false, double accuracy = 0.25) {
 	// turning
   if (turn) {
     pointAt(x2, y2, Reverse, 80, 667, xPos(), yPos(),1.5); // roughly face it and let error correction take over
@@ -872,7 +875,7 @@ void auton() {
   turnTo(20); // what's this even for 
   liftTo(75,0); // raise lift a bit
   // PLATFORM LEFT RED
-  unitArc(-0.5,1,0.5);
+  unitArc(-1,1,0.5);
   liftTo(-10,0); // lower lift
   turnTo(-168); // face it
   unitDrive(1.25,1,3,1000,75,false,0,RED); // get it
@@ -886,7 +889,7 @@ void auton() {
   wait(200,msec); // dont fall over lol
   // GET RIGHT YELLOW
   turnTo(-20,100);
-  unitArc(-0.75, 1, 0.3,true,false,0,1000); // back up + "align"
+  unitArc(-2.5, 1, 0.3,true,false,0,1000); // back up + "align"
   liftTo(-10,0);
   driveTo(1.53,1,true,false,0,0,1000); // for accuracy
   turnTo(180);
@@ -907,7 +910,7 @@ void auton() {
   Claw(CLAW_OPEN); // drop it
   // PLATFORM RIGHT RED
   turnTo(10);
-  unitArc(-0.5,0.25, 1,true,false, 0,875); // back up
+  unitArc(-2,0.25, 1,true,false, 0,875); // back up (double check desmos)
   liftTo(-10,0); // lower lift
   turnTo(90,100,1000);
   // swap to claw

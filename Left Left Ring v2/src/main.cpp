@@ -67,7 +67,7 @@ const long double pi = 3.1415926535897932384626433832795028841971693993751058209
 #define RAD * pi / 180
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
-#define RING_SPEED 85
+#define RING_SPEED 77
 #define doThePIDThing                                              \
 	sum = sum * decay + error;                                       \
 	speed = Kp * error + Ki * sum + Kd * (error - olderror);
@@ -82,6 +82,12 @@ void pre_auton(void) {
 	claw1.set(CLAW_OPEN);
   MogoTilt.set(TILT_OPEN);
   Lift.setStopping(hold);
+  // configure the vision sensors
+  signature Vision__MOGO_RED = signature (1, 8017, 9845, 8931, 393, 1153, 773, 5.2, 0);
+  signature Vision__MOGO_BLUE = signature (2, -3139, -2349, -2744, 8913, 13233, 11073, 2.7, 0);
+  signature Vision__MOGO_YELLOW = signature (3, 1117, 2153, 1636, -2853, -2167, -2510, 4.3, 0);
+  Vision = vision (PORT19, 50, Vision__MOGO_RED, Vision__MOGO_BLUE, Vision__MOGO_YELLOW);
+  VisionBack = vision (PORT12, 50, Vision__MOGO_RED, Vision__MOGO_BLUE, Vision__MOGO_YELLOW);
   wait(2000, msec);
 
   // All activities that occur before the competition starts
