@@ -13,16 +13,9 @@ extern motor rightmiddle;
 extern motor Lift;
 extern inertial Gyro;
 extern gps GPS;
-extern distance DistFront;
-extern distance DistBack;
-extern distance DistClaw;
 extern digital_out MogoTilt;
-extern digital_out Forklift;
 extern motor Rings;
 extern digital_out claw1;
-extern distance Stalker;
-extern limit Trigger1;
-extern limit Trigger2;
 
 /**
  * Used to initialize code/tasks/devices added using tools in VEXcode Pro.

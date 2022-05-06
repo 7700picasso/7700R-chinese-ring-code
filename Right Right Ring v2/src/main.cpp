@@ -27,16 +27,9 @@
 // Lift                 motor         9               
 // Gyro                 inertial      10              
 // GPS                  gps           8               
-// DistFront            distance      15              
-// DistBack             distance      16              
-// DistClaw             distance      17              
 // MogoTilt             digital_out   C               
-// Forklift             digital_out   F               
 // Rings                motor         20              
 // claw1                digital_out   E               
-// Stalker              distance      7               
-// Trigger1             limit         G               
-// Trigger2             limit         H               
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
@@ -50,26 +43,23 @@ using namespace vex;
 competition Competition;
 
 // define your global Variables here
-char *str = "";
+std::string str = "";
 const long double pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825; // much more accurate than 3.14. accurate enough to go across the universe and be within an atom of error
+bool deployed = false;
 
 #define Diameter 28 / 5
 #define UNITSIZE 23.75 // tile size
-#define MOGO_DIST 5
 #define NOTE str = 
 #define INF 4294967295
-#define CLAW_OPEN false
+#define CLAW_OPEN true
 #define TILT_OPEN false
-#define FORK_DOWN true
-#define LIFT_UP 66
 #define DIAG sqrt(2)
-#define High_Open true
 #define SPEED_CAP 100
-#define WIDTH 15
+#define WIDTH 11.75
 #define RAD * pi / 180
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
-#define RING_SPEED 77
+#define RING_SPEED 85
 #define RED 1
 #define BLUE 2
 #define YELLOW 3
@@ -116,10 +106,10 @@ double wheelRevs(uint8_t idx) {
   double counts[4] = {rots[0],rots[0],rots[0],rots[3]};
   
   for (uint8_t i = 1; i < 6; i++) {
-    if (rots[i] < counts[0]) {
+    if (fabs(rots[i]) < fabs(counts[0])) {
       counts[0] = rots[i];
     }
-    if (rots[i] > counts[1]) {
+    if (fabs(rots[i]) > fabs(counts[1])) {
       counts[1] = rots[i];
     }
   }
@@ -316,6 +306,13 @@ void rings(bool on, int speed = RING_SPEED) { // i think 100 is a bit fast
   }
 }
 
+#define deploy(check)                         \
+  if (!deployed || !check) {                  \
+    Rings.setVelocity(100, pct);              \
+    Rings.startSpinFor(forward, -1/6, rev);   \
+  }                                           \
+  deployed = true;                            
+
 void Claw(bool open) {
   claw1.set(open);
 }
@@ -330,13 +327,9 @@ void mogoTilt(bool state) {
   MogoTilt.set(state);
 }
 
-void Fork(bool state) {
-  Forklift.set(state);
-}
-
-void EndClaw(uint8_t clawID, double clawDist = 0, double error = 0) {
-  bool claws[] = {false, claw1.value() == CLAW_OPEN, MogoTilt.value() == TILT_OPEN, Forklift.value() == FORK_DOWN}, isOpen = claws[clawID];
-  if (isOpen && (fabs(error) <= clawDist || ((Trigger1.pressing() || Trigger2.pressing()) && clawID != 1))) {
+void EndClaw(uint8_t clawID = 0, double clawDist = 0, double error = 0) {
+  bool claws[] = {false, claw1.value() == CLAW_OPEN, MogoTilt.value() == TILT_OPEN}, isOpen = claws[clawID];
+  if (isOpen && fabs(error) <= clawDist && clawID) {
     switch (clawID) {
       case 1: 
         Claw(!CLAW_OPEN);
@@ -344,8 +337,6 @@ void EndClaw(uint8_t clawID, double clawDist = 0, double error = 0) {
       case 2:
         mogoTilt(!TILT_OPEN);
         break;
-      case 3: 
-        Fork(!FORK_DOWN);
     }
   }
 }
@@ -399,7 +390,7 @@ double getTrackSpeed(uint8_t trackingID = 0, bool back = false) {
 }
 
 void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, uint8_t trackingID = 0, double accuracy = 0.25) {
-	double Kp = 10 + 3 * (maxSpeed == 101); // was previously 50/3
+	double Kp = 10 + 4 * (maxSpeed == 101); // was previously 50/3
 	double Ki = 1.5; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
@@ -429,7 +420,7 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
     doThePIDThing
     speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
 
-    turnSpeed = (error - clawDist < 48 && ((claw1.value() == CLAW_OPEN && endClaw == 1) || (MogoTilt.value() == TILT_OPEN && endClaw == 2))) * (endClaw == 2 ? -1 : 1) * getTrackSpeed(trackingID, endClaw == 2); // follow mogo if you want to
+    turnSpeed = bool(trackingID) * (error - clawDist < 48 && ((claw1.value() == CLAW_OPEN && endClaw == 1) || (MogoTilt.value() == TILT_OPEN && endClaw == 2))) * (endClaw == 2 ? -1 : 1) * getTrackSpeed(trackingID, endClaw == 2); // follow mogo if you want to
 
     drive(speed + turnSpeed, speed - turnSpeed, 10);
     olderror = error;
@@ -445,7 +436,7 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
 }
 
 void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc = true, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 0.25) {
-	double Kp = 6; // was previously 50/3
+	double Kp = 10; // was previously 50/3
 	double Ki = 1; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
@@ -485,7 +476,7 @@ void unitArc(double target, double propLeft=1, double propRight=1, bool trueArc 
 }
 
 void arcTurn(double target, double propLeft=1, double propRight=1, bool endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, double accuracy = 1.25) {
-	double Kp = 6; // was previously 50/3
+	double Kp = 10; // was previously 50/3
 	double Ki = 1; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
@@ -507,7 +498,7 @@ void arcTurn(double target, double propLeft=1, double propRight=1, bool endClaw 
   uint32_t startTime = timer::system();
   bool isOpen;
 	 
-  while((fabs(error) > accuracy || fabs(speed) > 10) && timer::system() - startTime < maxTime) {
+  while((fabs(error) > accuracy) && timer::system() - startTime < maxTime) {
     // did this late at night but this while is important 
     error = target - dir(Gyro.rotation(deg)); // the error gets smaller when u reach ur target
     sum = sum * decay + error;
@@ -697,10 +688,10 @@ void balance() { // WIP
   Brain.Screen.printAt(1, 150, "i am done ");
 }
 
-void gyroturn(double target, double maxSpeed = 87.5, uint32_t maxTime = 1500, double accuracy = 1.25) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
-  double Kp = 0.6;
+void gyroturn(double target, double maxSpeed = 67, uint32_t maxTime = 1500, double accuracy = 1.25) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
+  double Kp = 0.5;
   double Ki = 0;
-  double Kd = 5;
+  double Kd = 10;
   double decay = 0; // integral decay
 	
   volatile double sum = 0;
@@ -721,9 +712,8 @@ void gyroturn(double target, double maxSpeed = 87.5, uint32_t maxTime = 1500, do
   }
 }
 
-void turnTo(double target, double accuracy = 1.25) {
-  double facing = Gyro.rotation(degrees);
-  gyroturn(mod(target - facing - 180, 360) - 180, facing, accuracy);
+void turnTo(double target, uint32_t maxTime = 1000, double accuracy = 1.5) {
+  gyroturn(mod(target - Gyro.rotation(degrees) - 180, 360) - 180, 67, maxTime, accuracy);
 }
 
 void auton() {
@@ -741,26 +731,35 @@ void auton() {
 	NOTE" RRRR               RRRR        RRRRRRRR               RRRR              RRRRRRRR       ";
 
 	Claw(CLAW_OPEN); // open claw
-  mogoTilt(TILT_OPEN);
-  Fork(!FORK_DOWN); // forklift folds up
 
 	while (Gyro.isCalibrating()) { // dont start until gyro and GPS are calibrated
 		wait(10, msec);
   }
   // SIDE
   Lift.spin(forward, -100, pct);
-  //rushGoal(2.5,3000);
-  unitDrive(1.65, 1, 1, INF, 101, false, 0, YELLOW); // get it
+  unitDrive(1.6, 1, 1, 1000, 101); // get it
+  unitDrive(-0.8,false,0,INF,101,true,8); // back up
+  // MID
+  mogoTilt(TILT_OPEN); // open tilt
+  turnTo(135,1500); // face it
+  unitDrive(-1.2 * DIAG, 2, 0, 1300, 87, false, 0, YELLOW);
+  turnTo(135, 333); // correct direction
+  unitDrive(1 * DIAG, false, 0, INF, 87);
+  gyroturn(-180);
+  unitDrive(-0.4 * DIAG, false, 0, INF, 87);
+  mogoTilt(TILT_OPEN);
   // ALLIANCE
-  unitDrive(-1.1,false,0,INF,101,true,10);
-  turnTo(-90);
-  VisionBack.takeSnapshot(BLUE); // determine which side we're on
-  unitDrive(-0.667, 2,3,INF,67,true,15,(VisionBack.largestObject.exists ? BLUE : RED)); // get it
+  unitDrive(0.2 * DIAG, false, 0, INF, 87);
+  turnTo(-80); // face it
+  VisionBack.takeSnapshot(MOGO_BLUE); // determine which side we're on
+  deploy(false)
+  unitDrive(-0.75, 2,0,750,50,true,20,(VisionBack.largestObject.exists ? BLUE : RED)); // get it
   rings(true);
   // RINGS
+  unitDrive(0.1,false,0,500,75);
   turnTo(0);
-  unitDrive(1.5, false, 0, INF,50);
-  unitDrive(-2); // go back home
+  unitDrive(1.5,false,0,INF,50);
+  unitDrive(-2,false,0,INF,101); // go back home
 }
 
 
@@ -781,6 +780,8 @@ void driver() {
 
   bool ringsOn = false;
   unsigned int ticks = 0;
+  deploy(false) // deploy ring hood.
+  uint32_t startTime = timer::system();
 
   while (true) {
     // drive control
@@ -804,13 +805,18 @@ void driver() {
       ringsOn = !ringsOn;
       r1Down = true;
     }
-		if (Controller1.ButtonY.pressing()) { // turn off rings
-			ringsOn = false;
+		if (Controller1.ButtonY.pressing()) { // deploy ring hood
+      deploy(false)
 		}
-		else if (Controller1.ButtonB.pressing()) { // reverse rings
-      ringSpeed = -100;
+		if (Controller1.ButtonB.pressing()) { // reverse rings
+      //ringSpeed = -100;
 		}
-    rings(ringsOn || ringSpeed < 0,ringSpeed);
+    if (timer::system() - startTime > 100) {
+      rings(ringsOn || ringSpeed < 0,ringSpeed);
+    }
+    else {
+      rings(true, -100);
+    }
 		// lift control
 		tmp = 100 * (Controller1.ButtonL1.pressing() - Controller1.ButtonL2.pressing());
 		if (tmp == 0) {
@@ -826,29 +832,24 @@ void driver() {
 		else if (Controller1.ButtonA.pressing()) { //claw open
       Claw(CLAW_OPEN);
 		}
-    // forklift controls
-    if (Controller1.ButtonUp.pressing()) { 
-      Forklift.set(!FORK_DOWN);
-		}
-		else if (Controller1.ButtonRight.pressing()) { 
-      Forklift.set(FORK_DOWN);
-		} 
+
     // brakes;
     if (Controller1.ButtonDown.pressing()) {
-      leftDrive1.stop(brake);
+      auton();
+      /*leftDrive1.stop(brake);
       leftDrive2.stop(brake);
       leftmiddle.stop(brake);
       rightDrive1.stop(brake);
       rightDrive2.stop(brake);
-      rightmiddle.stop(brake);
+      rightmiddle.stop(brake);*/
     }
     else {
-      leftDrive1.setStopping(coast);
+      /*leftDrive1.setStopping(coast);
       leftDrive2.setStopping(coast);
       leftmiddle.setStopping(coast);
       rightDrive1.setStopping(coast);
       rightDrive2.setStopping(coast);
-      rightmiddle.setStopping(coast);
+      rightmiddle.setStopping(coast);*/
     }
     // motor temp
     if (ticks > 9) {

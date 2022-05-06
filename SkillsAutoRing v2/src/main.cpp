@@ -27,9 +27,7 @@
 // Lift                 motor         9               
 // Gyro                 inertial      10              
 // GPS                  gps           8               
-// DistFront            distance      7               
 // MogoTilt             digital_out   C               
-// Forklift             digital_out   F               
 // Rings                motor         20              
 // claw1                digital_out   E               
 // GPSR                 gps           18              
@@ -46,8 +44,9 @@ using namespace vex;
 competition Competition;
 
 // define your global Variables here
-char *str = "";
+std::string str;
 const double pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825; // much more accurate than 3.14. accurate enough to go across the universe and be within an atom of error
+bool deployed = false;
 
 #define Diameter 28 / 5 // wheel diameter with added gear ratio
 #define UNITSIZE 23.75 // tile size
@@ -56,7 +55,6 @@ const double pi = 3.141592653589793238462643383279502884197169399375105820974944
 #define INF 4294967295
 #define CLAW_OPEN true
 #define TILT_OPEN false
-#define FORK_DOWN true
 #define LIFT_UP 66
 #define DIAG sqrt(2)
 #define High_Open true
@@ -65,7 +63,7 @@ const double pi = 3.141592653589793238462643383279502884197169399375105820974944
 #define RAD * pi / 180
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
-#define RING_SPEED 77
+#define RING_SPEED 85
 #define RED 1
 #define BLUE 2
 #define YELLOW 3
@@ -339,6 +337,13 @@ void rings(bool on, double speed = RING_SPEED) { // i think 100 is a bit fast
   }
 }
 
+#define deploy(check)                         \
+  if (!deployed || !check) {                  \
+    Rings.setVelocity(100, pct);              \
+    Rings.startSpinFor(forward, -30, deg);    \
+  }                                           \
+  deployed = true;     
+
 void Claw(bool open) {
   claw1.set(open);
 }
@@ -353,12 +358,8 @@ void mogoTilt(bool state) {
   MogoTilt.set(state);
 }
 
-void Fork(bool state) {
-  Forklift.set(state);
-}
-
 void EndClaw(uint8_t clawID, double clawDist = 0, double error = 0) {
-  bool claws[] = {false, claw1.value() == CLAW_OPEN, MogoTilt.value() == TILT_OPEN, Forklift.value() == FORK_DOWN}, isOpen = claws[clawID];
+  bool claws[] = {false, claw1.value() == CLAW_OPEN, MogoTilt.value() == TILT_OPEN}, isOpen = claws[clawID];
   if (isOpen && fabs(error) <= clawDist) {
     switch (clawID) {
       case 1: 
@@ -367,8 +368,6 @@ void EndClaw(uint8_t clawID, double clawDist = 0, double error = 0) {
       case 2:
         mogoTilt(!TILT_OPEN);
         break;
-      case 3: 
-        Fork(!FORK_DOWN);
     }
   }
 }
@@ -826,9 +825,6 @@ void auton() {
 
 	Claw(CLAW_OPEN); // open claw
   mogoTilt(TILT_OPEN);
-  Fork(!FORK_DOWN);
-
-	//runningAuto = true;
 
 	while (Gyro.isCalibrating() || GPS.isCalibrating()) { // dont start until gyro and GPS are calibrated
 		wait(10, msec);
@@ -839,13 +835,14 @@ void auton() {
 	  Gyro.setRotation(GPSR.rotation(degrees) + 90, degrees);
 
     if (fabs(mod(Gyro.rotation(deg), 360) + 90) > 5) { // sanity check 2
-	    Gyro.setRotation(-90, degrees);
+	    Gyro.setRotation(-90, degrees); // AAAAAAAAAAAAAA
     }
   }
+
   thread OUTAKE(outake);
   OUTAKE.thread::setPriority(1);
 	Pos = {GPSR.yPosition(inches), -GPSR.xPosition(inches)};
-
+  deploy(true)
   uint32_t startTime = timer::system();
   Lift.setPosition(0, degrees); // set lift rotations
   // GET LEFT RED
@@ -977,6 +974,7 @@ void driver() {
 
   bool ringsOn = false;
   double ticks = 0;
+  deploy(true)
 
   //thread OUTAKE(outake);
 
@@ -1003,13 +1001,15 @@ void driver() {
       ringsOn = !ringsOn;
       r1Down = true;
     }
-		if (Controller1.ButtonY.pressing()) { // turn off rings
-			ringsOn = false;
+		if (Controller1.ButtonY.pressing()) { // deploy the hood
+			deploy(false)
 		}
-		else if (Controller1.ButtonB.pressing()) { // reverse rings
+		if (Controller1.ButtonB.pressing()) { // reverse rings
       ringSpeed = -100;
 		}
-    rings(ringsOn || ringSpeed < 0,ringSpeed);
+    if (!Rings.isSpinning()) {
+      rings(ringsOn || ringSpeed < 0,ringSpeed);
+    }
 		// lift control
 		tmp = 100 * (Controller1.ButtonL1.pressing() - Controller1.ButtonL2.pressing());
 		if (tmp == 0) {
@@ -1025,13 +1025,7 @@ void driver() {
 		else if (Controller1.ButtonA.pressing()) { //claw open
       Claw(CLAW_OPEN);
 		}
-    // forklift controls
-    if (Controller1.ButtonUp.pressing()) { 
-      Forklift.set(!FORK_DOWN);
-		}
-		else if (Controller1.ButtonRight.pressing()) { 
-      Forklift.set(FORK_DOWN);
-		}
+  
     // PROGRAM TESTING
     getTrackSpeed(2);
     if (Controller1.ButtonDown.pressing()) {

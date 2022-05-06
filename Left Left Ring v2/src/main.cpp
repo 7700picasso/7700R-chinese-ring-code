@@ -28,12 +28,8 @@
 // Gyro                 inertial      10              
 // GPS                  gps           8               
 // MogoTilt             digital_out   C               
-// Forklift             digital_out   F               
 // Rings                motor         20              
 // claw1                digital_out   E               
-// Stalker              distance      7               
-// Trigger1             limit         G               
-// Trigger2             limit         H               
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
@@ -47,26 +43,26 @@ using namespace vex;
 competition Competition;
 
 // define your global Variables here
-char *str = "";
+std::string str;
 const long double pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825; // much more accurate than 3.14. accurate enough to go across the universe and be within an atom of error
+bool deployed = false;
 
 #define Diameter 28 / 5
 #define UNITSIZE 23.75 // tile size
 #define MOGO_DIST 5
 #define NOTE str = 
 #define INF 4294967295
-#define CLAW_OPEN false
+#define CLAW_OPEN true
 #define TILT_OPEN false
-#define FORK_DOWN true
 #define LIFT_UP 66
 #define DIAG sqrt(2)
 #define High_Open true
 #define SPEED_CAP 100
-#define WIDTH 15
+#define WIDTH 11.75
 #define RAD * pi / 180
 #define DEG * 180 / pi
 #define INFTSML 0.00000000000000000001
-#define RING_SPEED 77
+#define RING_SPEED 85
 #define doThePIDThing                                              \
 	sum = sum * decay + error;                                       \
 	speed = Kp * error + Ki * sum + Kd * (error - olderror);
@@ -152,11 +148,11 @@ std::array<long double,2> calcArc(double dx, double dy, double theta = 90 - Gyro
 			double n = -dx / dy;
 			double c = (dx * dx + dy * dy) / (2 * dy);
 
-			double oX = c / (m - n);
-			double oY = n * oX + c;
+      oX = c / (m - n);
+			oY = n * oX + c;
 		}
 		else {
-			double oX = dx / 2, oY = m * oX; // i calculated this limit
+			oX = dx / 2, oY = m * oX; // i calculated this limit
 		}
     double r = sgn(dir(atan2(dy, dx) DEG - theta)) * sqrt(oX * oX + oY * oY);
     double deltaTheta = dir(2 * (atan2(-dy, -dx) DEG - theta));
@@ -222,9 +218,6 @@ std::array<double,8> getTemp() {
   temps[6]/=7;
   return temps;
 }
-
-
-
 
 void brakeDrive() {
   leftDrive1.stop(brake);
@@ -317,6 +310,13 @@ void rings(bool on, int speed = RING_SPEED) { // i think 100 is a bit fast
   }
 }
 
+#define deploy(check)                                         \
+  if (!deployed || !check) {                                  \
+    Rings.setVelocity(100, pct);                              \
+    Rings.spinFor(forward, -1/6, rev,false);                  \
+  }                                                           \
+  deployed = true;     
+
 void Claw(bool open) {
   claw1.set(open);
 }
@@ -331,13 +331,9 @@ void mogoTilt(bool state) {
   MogoTilt.set(state);
 }
 
-void Fork(bool state) {
-  Forklift.set(state);
-}
-
 void EndClaw(uint8_t clawID, double clawDist = 0, double error = 0) {
-  bool claws[] = {false, claw1.value() == CLAW_OPEN, MogoTilt.value() == TILT_OPEN, Forklift.value() == FORK_DOWN}, isOpen = claws[clawID];
-  if (isOpen && (fabs(error) <= clawDist || ((Trigger1.pressing() || Trigger2.pressing()) && clawID != 1))) {
+  bool claws[] = {false, claw1.value() == CLAW_OPEN, MogoTilt.value() == TILT_OPEN}, isOpen = claws[clawID];
+  if (isOpen && fabs(error) <= clawDist && clawID != 1) {
     switch (clawID) {
       case 1: 
         Claw(!CLAW_OPEN);
@@ -345,8 +341,6 @@ void EndClaw(uint8_t clawID, double clawDist = 0, double error = 0) {
       case 2:
         mogoTilt(!TILT_OPEN);
         break;
-      case 3: 
-        Fork(!FORK_DOWN);
     }
   }
 }
@@ -747,7 +741,6 @@ void auton() {
 
 	Claw(CLAW_OPEN); // open claw
   mogoTilt(TILT_OPEN);
-  //Fork(!FORK_DOWN); // forklift folds up
   // SIDE
   Lift.spin(forward, -100, pct); // lower lift
   unitDrive(1.72,1,1,1000,101,false,0,YELLOW);
@@ -755,7 +748,8 @@ void auton() {
   Gyro.resetRotation();
   // ALLIANCE
   gyroturn(-83);
-  VisionBack.takeSnapshot(BLUE); // determine which side we're on
+  VisionBack.takeSnapshot(MOGO_BLUE); // determine which side we're on
+  deploy(false)
   unitDrive(-0.75, 2, 3,750,67,true,30,(VisionBack.largestObject.exists ? BLUE : RED)); // tilt alliance goal
   rings(true); // start intake
   liftTo(30,0);
@@ -782,6 +776,8 @@ void driver() {
   bool ringsOn = false;
   unsigned int ticks = 0;
 
+  deploy(true)
+
   while (true) {
     // drive control
 		double rstick = getSpeed(Controller1.Axis2.position());
@@ -804,13 +800,15 @@ void driver() {
       ringsOn = !ringsOn;
       r1Down = true;
     }
-		if (Controller1.ButtonY.pressing()) { // turn off rings
-			ringsOn = false;
+		if (Controller1.ButtonY.pressing()) { // deploy ring hood
+      deploy(false)
 		}
 		else if (Controller1.ButtonB.pressing()) { // reverse rings
       ringSpeed = -100;
 		}
-    rings(ringsOn || ringSpeed < 0,ringSpeed);
+    if (!Rings.isSpinning()) {
+      rings(ringsOn || ringSpeed < 0,ringSpeed);
+    }
 		// lift control
 		tmp = 100 * (Controller1.ButtonL1.pressing() - Controller1.ButtonL2.pressing());
 		if (tmp == 0) {
@@ -826,13 +824,7 @@ void driver() {
 		else if (Controller1.ButtonA.pressing()) { //claw open
       Claw(CLAW_OPEN);
 		}
-    // forklift controls
-    if (Controller1.ButtonUp.pressing()) { 
-      Forklift.set(!FORK_DOWN);
-		}
-		else if (Controller1.ButtonRight.pressing()) { 
-      Forklift.set(FORK_DOWN);
-		}
+    
     // brakes;
     if (Controller1.ButtonDown.pressing()) {
       leftDrive1.stop(brake);

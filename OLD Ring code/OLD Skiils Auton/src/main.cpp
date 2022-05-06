@@ -51,6 +51,7 @@ competition Competition;
 // define your global Variables here
 char *str = "";
 const double pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825; // much more accurate than 3.14. accurate enough to go across the universe and be within an atom of error
+bool deployed = false;
 
 #define Diameter 3.25 * 3 / 5
 #define UNITSIZE 23.75 // tile size
@@ -314,6 +315,13 @@ void rings(bool on, int speed = 100) { // i think 100 is a bit fast
     Rings.spin(forward,0,percent);
   }
 }
+
+#define deploy(check)                         \
+  if (!deployed || !check) {                  \
+    Rings.setVelocity(100, pct);              \
+    Rings.startSpinFor(forward, -90, deg);    \
+  }                                           \
+  deployed = true;     
 
 void Claw(bool open) {
   //wait(50 * open, msec);
@@ -783,6 +791,7 @@ void auton() {
 
 	Claw(CLAW_OPEN); // open claw
   mogoTilt(TILT_OPEN);
+  deploy(true);
 
 	//runningAuto = true;
 
@@ -919,6 +928,8 @@ void driver() {
   bool r1Down = false;
 
   bool ringsOn = false;
+  
+  deploy(true);
 
   while (true) {
     // drive control
@@ -974,26 +985,14 @@ void driver() {
 		}
     // position identification
 		if (Controller1.ButtonDown.pressing()) {
-      //balance(false);
       auton();
-      /*pointAt(-3, -3);
-      driveTo(-1.63,0);
-      wait(1000,msec);
-      driveTo(2.1, 2.7);*/
-      //arcTo(1,1);
     }
     if (Controller1.ButtonLeft.pressing())
     {
-      Gyro.setRotation(0,deg);
-      /*Controller1.Screen.setCursor(0,0);
-      Controller1.Screen.print("%0.1f °C ",getTemp()[6]);*/
+      Controller1.Screen.setCursor(0,0);
+      Controller1.Screen.print("%0.1f °C ",getTemp()[6]);
     }
-    //if (getTemp()[7] > 50) {
-      //Controller1.Screen.print("too hot");
-    //}
     wait(20,msec);
-    //Controller1.Screen.clearLine();
-    //Controller1.Screen.print("%0.3f,%0.3f",-GPS.yPosition(inches)/UNITSIZE,GPS.xPosition(inches)/UNITSIZE);
   }
 }
   
