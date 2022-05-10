@@ -30,6 +30,7 @@
 // MogoTilt             digital_out   C               
 // Rings                motor         20              
 // claw1                digital_out   E               
+// Vision               vision        17              
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
@@ -333,7 +334,7 @@ void mogoTilt(bool state) {
 
 void EndClaw(uint8_t clawID, double clawDist = 0, double error = 0) {
   bool claws[] = {false, claw1.value() == CLAW_OPEN, MogoTilt.value() == TILT_OPEN}, isOpen = claws[clawID];
-  if (isOpen && fabs(error) <= clawDist && clawID != 1) {
+  if (isOpen && fabs(error) <= clawDist && clawID != 0) {
     switch (clawID) {
       case 1: 
         Claw(!CLAW_OPEN);
@@ -349,26 +350,26 @@ double getTrackSpeed(uint8_t trackingID = 0, bool back = false) {
     switch (trackingID) {
       case RED:
         if (back) {
-          VisionBack.takeSnapshot(MOGO_RED);
+          VisionBack.takeSnapshot(Vision__MOGO_RED);
         }
         else {
-          Vision.takeSnapshot(MOGO_RED);
+          Vision.takeSnapshot(Vision__MOGO_RED);
         }
         break;
       case BLUE:
         if (back) {
-          VisionBack.takeSnapshot(MOGO_BLUE);
+          VisionBack.takeSnapshot(Vision__MOGO_BLUE);
         }
         else {
-          Vision.takeSnapshot(MOGO_BLUE);
+          Vision.takeSnapshot(Vision__MOGO_BLUE);
         }
         break;
       case YELLOW: 
         if (back) {
-          VisionBack.takeSnapshot(MOGO_YELLOW);
+          VisionBack.takeSnapshot(Vision__MOGO_YELLOW);
         }
         else {
-          Vision.takeSnapshot(MOGO_YELLOW);
+          Vision.takeSnapshot(Vision__MOGO_YELLOW);
         }
         break;
     }
@@ -383,7 +384,7 @@ double getTrackSpeed(uint8_t trackingID = 0, bool back = false) {
   if (exists) {
     // get position
     const double center = 158;
-    const double Kp = 0.3;
+    const double Kp = 0.5;
     // Then get the turning speed with proportionality
     const double centerX = back ? VisionBack.largestObject.centerX : Vision.largestObject.centerX;
     turnSpeed = Kp * (centerX - center);
@@ -393,8 +394,8 @@ double getTrackSpeed(uint8_t trackingID = 0, bool back = false) {
   return turnSpeed;
 }
 
-void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, uint8_t trackingID = 0, double accuracy = 0.25) {
-	double Kp = 10 + 3 * (maxSpeed == 101); // was previously 50/3
+void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = INF, bool raiseMogo = false, double mogoHeight = 100, uint8_t trackingID = 0, bool rush = false, double accuracy = 0.25) {
+	double Kp = 10 + 4.5 * rush; // was previously 50/3
 	double Ki = 1.5; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
@@ -417,15 +418,17 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
   uint32_t startTime = timer::system();
   bool isOpen;
   bool lifted = false;
-
   
   while((fabs(error) > accuracy || fabs(speed) > 10) && timer::system() - startTime < maxTime) {
     // did this late at night but this while is important 
+    if (target == 0.75 * UNITSIZE && fabs(leftDrive1.velocity(rpm)) < 10 && speed > 50) {
+      target += 2.1 * UNITSIZE;
+    }
     error = target - wheelRevs(0) * Diameter * pi; //the error gets smaller when u reach ur target
     doThePIDThing
     speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
 
-    turnSpeed = (error - clawDist < 48 && ((claw1.value() == CLAW_OPEN && endClaw == 1) || (MogoTilt.value() == TILT_OPEN && endClaw == 2))) * (endClaw == 2 ? -1 : 1) * getTrackSpeed(trackingID, endClaw == 2); // follow mogo if you want to
+    turnSpeed = (claw1.value() == CLAW_OPEN) * (endClaw == 2 ? -1 : 1) * getTrackSpeed(trackingID); // follow mogo if you want to
 
     drive(speed + turnSpeed, speed - turnSpeed, 10);
     olderror = error;
@@ -696,11 +699,11 @@ void balance() { // WIP
   Brain.Screen.printAt(1, 150, "i am done ");
 }
 
-void gyroturn(double target, double maxSpeed = 87.5, uint32_t maxTime = 1500, double accuracy = 1.25) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
-  double Kp = 0.6;
+void gyroturn(double target, double maxSpeed = 80, uint32_t maxTime = 1500, double accuracy = 1.25) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
+  double Kp = 0.667;
   double Ki = 0;
-  double Kd = 5;
-  double decay = 0; // integral decay
+  double Kd = 7;
+  double decay = 0.5; // integral decay
 	
   volatile double sum = 0;
   volatile double speed;
@@ -720,9 +723,8 @@ void gyroturn(double target, double maxSpeed = 87.5, uint32_t maxTime = 1500, do
   }
 }
 
-void turnTo(double target, double accuracy = 1.25) {
-  double facing = Gyro.rotation(degrees);
-  gyroturn(mod(target - facing - 180, 360) - 180, facing, accuracy);
+void turnTo(double target, uint32_t maxTime = 1300, double accuracy = 1.25) {
+  gyroturn(mod(target - Gyro.rotation(degrees) - 180, 360) - 180, 85, maxTime, accuracy);
 }
 
 void auton() {
@@ -740,21 +742,42 @@ void auton() {
 	NOTE" RRRR               RRRR        RRRRRRRR               RRRR              RRRRRRRR       ";
 
 	Claw(CLAW_OPEN); // open claw
-  mogoTilt(TILT_OPEN);
+  mogoTilt(!TILT_OPEN);
   // SIDE
   Lift.spin(forward, -100, pct); // lower lift
-  unitDrive(1.72,1,1,1000,101,false,0,YELLOW);
-  unitDrive(-2, 0, 0, 1500,101,true,10); // back up. This may take a while if we're playing tuggle war. We have plenty of time at this point.
-  Gyro.resetRotation();
-  // ALLIANCE
-  gyroturn(-83);
+  unitDrive(1.7,1,1,1000,INF,false,0,YELLOW,true);
+  Lift.resetPosition();
+  Vision.takeSnapshot(YELLOW);
+  unitDrive(-0.75,false,0,INF,INF,true,5,0,true,2);
+  if (Vision.largestObject.exists && Vision.largestObject.width > 100) {
+    unitDrive(-2.1, 0, 0, 2000,INF,false,0,0,true); // back up. This may take a while if we're playing tuggle war. We have plenty of time at this point.
+    return;
+  }
+  else {
+    Claw(CLAW_OPEN);
+    liftTo(-10,0);
+    turnTo(67,750);
+    rings(true);
+    unitDrive(1.75,1,1,INF, 87, false,0,YELLOW); // get mid
+    unitDrive(-1.5,1,1,INF,INF,true,8);
+    turnTo(25,875);
+    unitDrive(-3,1,1,INF,INF);
+    return;
+  }
+  /*// ALLIANCE
+  mogoTilt(TILT_OPEN); // open tilt
+  gyroturn(-80, 100,1500); // aim
   VisionBack.takeSnapshot(MOGO_BLUE); // determine which side we're on
+  Rings.spin(fwd, -100, pct);
+  wait(100,msec);
+  Rings.stop();
   deploy(false)
-  unitDrive(-0.75, 2, 3,750,67,true,30,(VisionBack.largestObject.exists ? BLUE : RED)); // tilt alliance goal
+  unitDrive(-1, 2, 3,1300,50,true,30,(VisionBack.largestObject.exists ? BLUE : RED)); // tilt alliance goal
   rings(true); // start intake
-  liftTo(30,0);
+  wait(750,msec);
+  mogoTilt(TILT_OPEN); // open tilt
   // RINGS
-  unitDrive(1, false, 0, INF, 20); // ring-around a-rosie a stick full of donuts 
+  unitDrive(1, false, 0, INF, 20);*/
 }
 
 //driver controls,dont change unless your jaehoon or sean
@@ -848,6 +871,7 @@ void driver() {
       Controller1.Screen.print("%f",getTemp());
       ticks = 0;
     }
+    getTrackSpeed(YELLOW);
 		wait(20, msec); // dont waste air 
     ticks++;
   }

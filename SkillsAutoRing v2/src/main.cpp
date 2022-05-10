@@ -31,10 +31,13 @@
 // Rings                motor         20              
 // claw1                digital_out   E               
 // GPSR                 gps           18              
+// Vision               vision        17              
+// VisionBack           vision        12              
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
 #include "Vision.h"
+#include "VisionBack.h"
 #include <math.h>
 #include <array>
 
@@ -76,6 +79,12 @@ std::pair<double, double> Pos = {-1.875 * UNITSIZE, -2.5 * UNITSIZE};
 
 // for red comments
 
+using namespace vex;
+using signature = vision::signature;
+using code = vision::code;
+
+/*vex-vision-config:begin*/
+
 void pre_auton(void) {
   vexcodeInit();
   Gyro.calibrate();
@@ -99,10 +108,10 @@ double wheelRevs(uint8_t idx) {
   double counts[4] = {rots[0],rots[0],rots[0],rots[3]};
   
   for (uint8_t i = 1; i < 6; i++) {
-    if (fabs(rots[i]) < fabs(counts[0])) {
+    if (rots[i] < counts[0]) {
       counts[0] = rots[i];
     }
-    if (fabs(rots[i]) > fabs(counts[1])) {
+    if (rots[i] > counts[1]) {
       counts[1] = rots[i];
     }
   }
@@ -372,42 +381,42 @@ void EndClaw(uint8_t clawID, double clawDist = 0, double error = 0) {
   }
 }
 
-double getTrackSpeed(uint8_t trackingID = 0, bool back = false) {
+std::pair<double, double> getTrackSpeed(uint8_t trackingID = 0, bool back = false) {
   if (trackingID > 0 && trackingID < 4) {
     switch (trackingID) {
       case RED:
-        if (back) {
-          VisionBack.takeSnapshot(MOGO_RED);
+        Vision.takeSnapshot(Vision__MOGO_RED);
+        /*if (back) {
+          //VisionBack.takeSnapshot(VisionBack__MOGO_RED);
         }
         else {
-          Vision.takeSnapshot(MOGO_RED);
-        }
+        }*/
         break;
       case BLUE:
-        if (back) {
-          VisionBack.takeSnapshot(MOGO_BLUE);
-        }
-        else {
-          Vision.takeSnapshot(MOGO_BLUE);
-        }
+        /*if (back) {
+          //VisionBack.takeSnapshot(VisionBack__MOGO_BLUE);
+        }*/
+        //else {
+          Vision.takeSnapshot(Vision__MOGO_BLUE);
+        //}
         break;
       case YELLOW: 
-        if (back) {
-          VisionBack.takeSnapshot(MOGO_YELLOW);
+        /*if (back) {
+          //VisionBack.takeSnapshot(VisionBack__MOGO_YELLOW);
         }
-        else {
-          Vision.takeSnapshot(MOGO_YELLOW);
-        }
+        else {*/
+          Vision.takeSnapshot(Vision__MOGO_YELLOW);
+        //}
         break;
     }
   }
   else {
     Brain.Screen.drawCircle(240, 136, 100,black);
-    return 0;
+    return {0,0};
   }
   Brain.Screen.drawCircle(240, 136, 100,red);
   double turnSpeed = 0;
-  bool exists = (!back && Vision.largestObject.exists && Vision.largestObject.width > 20) || (back && Vision.largestObject.exists && Vision.largestObject.width > 20);
+  bool exists = (/*!back &&*/ Vision.largestObject.exists && Vision.largestObject.width > 20/* || (back && Vision.largestObject.exists && Vision.largestObject.width > 20*/);
   if (exists) {
     // get position
     const double center = 158;
@@ -418,11 +427,11 @@ double getTrackSpeed(uint8_t trackingID = 0, bool back = false) {
     Brain.Screen.drawCircle(240, 136, 100,green);
     //
   }
-  return turnSpeed;
+  return {turnSpeed, Vision.largestObject.width};
 }
 
 void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = 85, bool raiseMogo = false, double mogoHeight = 100, uint8_t trackingID = 0, double accuracy = 0.25) {
-	double Kp = 7.5; // was previously 50/3
+	double Kp = 10; // was previously 50/3
 	double Ki = 1.5; // to increase speed if its taking too long.
 	double Kd = 20; // was previously 40/3
 	double decay = 0.5; // integral decay
@@ -448,11 +457,18 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
 
   while((fabs(error) > accuracy || fabs(speed) > 10) && timer::system() - startTime < maxTime) {
     // did this late at night but this while is important 
-    error = target - wheelRevs(0) * Diameter * pi; //the error gets smaller when u reach ur target
+    std::pair<double, double> track = getTrackSpeed(trackingID, endClaw == 2);
+    if (trackingID) {
+      error = 0.05 * (316 - track.second); //the error gets smaller when u reach ur target
+    }
+    else {
+      error = target - wheelRevs(0) * pi * Diameter;
+    }
     doThePIDThing
     speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
 
-    turnSpeed = (error - clawDist < 48 && ((claw1.value() == CLAW_OPEN && endClaw == 1) || (MogoTilt.value() == TILT_OPEN && endClaw == 2))) * (endClaw == 2 ? -1 : 1) * getTrackSpeed(trackingID, endClaw == 2); // follow mogo if you want to
+
+    turnSpeed = (((claw1.value() == CLAW_OPEN && endClaw == 1) || (MogoTilt.value() == TILT_OPEN && endClaw == 2))) * (endClaw == 2 ? -1 : 1) * track.first; // follow mogo if you want to
 
     drive(speed + turnSpeed, speed - turnSpeed, 10);
     olderror = error;
@@ -461,6 +477,10 @@ void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint
     if (raiseMogo && ((!isOpen && (error + 6 < clawDist)) || endClaw != 1) && !lifted) {
       liftTo(mogoHeight,0);
 			lifted = true;
+    }
+    if (trackingID && claw1.value() != CLAW_OPEN && error < 6) {
+      return;
+	    brakeDrive();
     }
   }
 	brakeDrive();
@@ -647,13 +667,19 @@ void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, u
 }
 
 void balance() {
+  while (fabs(Gyro.pitch(deg)) < 20.5) {
+    drive(100,100,10);
+  }
+  unitDrive(1);
+  mogoTilt(TILT_OPEN);
+  return;
   Brain.Screen.clearScreen();
   //double Kp = 2;
   //double Kt = 0.15; // constant for tip counts. This acts like Ki.
   //volatile double speed;
   volatile double pitch = Gyro.pitch(degrees);
 	const double stop = 20.5;
-	double back = 0, min = -6, max = 6; // these are reasonable boundaries.
+	double back = 1.5, min = back - 6, max = back + 6; // these are reasonable boundaries.
 	int8_t sgnPitch = sgn(pitch), sgnTip = sgnPitch;
 	
 	while (true) {
@@ -670,14 +696,15 @@ void balance() {
 			while (fabs(Gyro.pitch(degrees)) < stop) { // this should end with us waiting forever when its balanced
 				wait(10,msec);
 				if (fabs(Gyro.pitch(degrees)) < 3) {
-					Controller1.Screen.setCursor(0,0);
-					Controller1.Screen.print(back);
+					brakeDrive();
 				}
         else {
           startTime = timer::system();
         }
         if (timer::system() - startTime > 1000) {
-          return;
+          Controller1.Screen.setCursor(0,0);
+					Controller1.Screen.print(back);
+          return; // end 
         }
 				sgnPitch = sgn(Gyro.pitch(degrees));
 			}
@@ -694,7 +721,7 @@ void balance() {
 	}
 }
 
-void gyroturn(double target, double maxSpeed = 80, uint32_t maxTime = 750, double accuracy = 2) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
+void gyroturn(double target, double maxSpeed = 80, uint32_t maxTime = 1300, double accuracy = 2) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
   double Kp = 0.6;
   double Ki = 0;
   double Kd = 5;
@@ -717,7 +744,7 @@ void gyroturn(double target, double maxSpeed = 80, uint32_t maxTime = 750, doubl
   }
 }
 
-void turnTo(double target, double maxSpeed = 80, double maxTime = 750, double accuracy = 2) {
+void turnTo(double target, double maxSpeed = 80, double maxTime = 1300, double accuracy = 2) {
   gyroturn(mod(target - Gyro.rotation(degrees) - 180, 360) - 180, maxSpeed, maxTime, accuracy);
 }
 
@@ -825,6 +852,13 @@ void auton() {
 
 	Claw(CLAW_OPEN); // open claw
   mogoTilt(TILT_OPEN);
+  liftTime(-100, 0);
+
+  unitDrive(2.1,1,3,INF,100,false,0,YELLOW);
+  unitDrive(-0.5);
+  turnTo(180);
+  unitDrive(2.1,1,1,2000,100,false,0);
+  return;
 
 	while (Gyro.isCalibrating() || GPS.isCalibrating()) { // dont start until gyro and GPS are calibrated
 		wait(10, msec);
@@ -842,7 +876,9 @@ void auton() {
   thread OUTAKE(outake);
   OUTAKE.thread::setPriority(1);
 	Pos = {GPSR.yPosition(inches), -GPSR.xPosition(inches)};
-  deploy(true)
+  rings(true,-100);
+  wait(100,msec);
+  rings(false);
   uint32_t startTime = timer::system();
   Lift.setPosition(0, degrees); // set lift rotations
   // GET LEFT RED
@@ -858,11 +894,12 @@ void auton() {
   unitDrive(2.1,1,3,1500,87,true,80,YELLOW); // get it
   liftTo(75,0); // raise lift
   // PLATFORM LEFT YELLOW
-  turnTo(20,100,500); // fix direction
+  turnTo(25,500); // fix direction
   unitArc(1.2,1,0.41); // curve to face the rings
   turnTo(90);
   unitDrive(1.25,false,0,INF,50); // some rings
   unitDrive(-0.25,false,0,INF,50); // back up
+  wait(200,msec); // dont send it flying
   mogoTilt(TILT_OPEN); // drop the back goal
   turnTo(3);
   unitDrive(1,false,0,875);
@@ -871,21 +908,20 @@ void auton() {
   turnTo(20); // what's this even for 
   liftTo(75,0); // raise lift a bit
   // PLATFORM LEFT RED
-  unitArc(-1,1,0.5);
+  unitArc(-0.5,1,0.5);
   liftTo(-10,0); // lower lift
-  turnTo(-168); // face it
+  turnTo(-145, 80, 1300); // face it
   unitDrive(1.25,1,3,1000,75,false,0,RED); // get it
   // platform it
   liftTo(70,0); // raise lift
-  turnTo(20);
+  turnTo(27); // aim
   unitDrive(2,false,0,1300,75); // go to platform
   wait(200,msec);
   Claw(CLAW_OPEN); // drop it
-  //liftDeg(10,0); // raise lift
   wait(200,msec); // dont fall over lol
   // GET RIGHT YELLOW
   turnTo(-20,100);
-  unitArc(-2.5, 1, 0.3,true,false,0,1000); // back up + "align"
+  unitArc(-0.75, 1, 0.3,true,false,0,1000); // back up + "align"
   liftTo(-10,0);
   driveTo(1.53,1,true,false,0,0,1000); // for accuracy
   turnTo(180);
@@ -906,7 +942,7 @@ void auton() {
   Claw(CLAW_OPEN); // drop it
   // PLATFORM RIGHT RED
   turnTo(10);
-  unitArc(-2,0.25, 1,true,false, 0,875); // back up (double check desmos)
+  unitArc(-0.5,0.25, 1,true,false, 0,875); // back up (double check desmos)
   liftTo(-10,0); // lower lift
   turnTo(90,100,1000);
   // swap to claw
@@ -924,37 +960,30 @@ void auton() {
   // CLAW MID
   unitDrive(-0.75); // back up
   liftTo(-10,0);
-  driveTo(0,0,false,1,0,1,INF,80,true,10,YELLOW); // get it
+  driveTo(0,0,false,1,0,0,INF,80,true,10,YELLOW); // get it
   liftTo(10,0);
-  // PLATFORM MID
-  turnTo(-3);
-  liftTo(90,500);
-  unitDrive(4,false,0,2000,80,true,90); // go to platform
-  liftTime(-100, 500,true);
-  Claw(CLAW_OPEN); // drop it
   // TILT LEFT BLUE
-  unitDrive(-0.333);
+  driveTo(-1.5,1.5,true,false,0,0,INF,75); // get it
   turnTo(90);
-  unitDrive(-2,2,1,2000,80,false,0,BLUE);
-  driveTo(-2, 1.5, true, 2, 0, 1, 1300, 75, true, 20, BLUE); // tilt it
-  // CLAW RIGHT BLUE
-  driveTo(2,1); // go to the other side
-	liftTo(-10,0); // lower lift
-	pointAt(1.25, 2.5); // face it once
-  driveTo(1.25, 2.5, false, 1, 5, 2, 1500, 50, false, 0, BLUE); // face it twice. get it
+  unitDrive(-1,2,1,2000,80,false,0,BLUE); // tilt it
   // ALIGN FOR BALANCE
-  unitDrive(-DIAG); // back up
-  turnTo(180);
-  unitDrive(5,false,0,2000,100,true,67);
+  unitDrive(0.25);
+  turnTo(-178.5,80,1000);
+  driveTo(-2, -1.5, false,0,0,0,3000,85,true, 70);
+  turnTo(180,80,1000);
+  unitDrive(1.5,false, 0,1300,100,true,70);
   unitDrive(-0.1); // back up
   gyroturn(90); // point straight at the platform
   // Lower the platform
-  liftTo(-10,500); // lower lift
+  unitDrive(-1,false,0,875,85); // back up
+  unitDrive(0.875); // go forward
+  liftTo(-10,667); // lower lift
 	Lift.setMaxTorque(0,Nm); // bye bye torque
-  unitDrive(1.4); // go up the platform
+  liftTo(20,0); // lower lift
+  balance();
+  mogoTilt(TILT_OPEN); // drop the back goal
 	Controller1.Screen.setCursor(0, 0);
   Controller1.Screen.print((timer::system() - startTime) * 0.001);
-  balance();
 }
 
 //driver controls,dont change unless your jaehoon or ben
@@ -1027,15 +1056,20 @@ void driver() {
 		}
   
     // PROGRAM TESTING
-    getTrackSpeed(2);
     if (Controller1.ButtonDown.pressing()) {
       auton();
+      /*unitDrive(0.15);
+      liftTime(-100,700);
+      Lift.setMaxTorque(0,Nm);
+      //drive(100,100,750);
+      balance();*/
     }
     if (Controller1.ButtonLeft.pressing() && ticks > 6.667) {
       Controller1.Screen.setCursor(0,0);
       Controller1.Screen.print("%f",getTemp());
       ticks = 0;
     }
+    getTrackSpeed(YELLOW, false);
 		wait(20, msec); // dont waste air 
     ticks++;
   }

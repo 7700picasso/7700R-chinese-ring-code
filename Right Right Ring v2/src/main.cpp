@@ -389,10 +389,10 @@ double getTrackSpeed(uint8_t trackingID = 0, bool back = false) {
   return turnSpeed;
 }
 
-void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = SPEED_CAP, bool raiseMogo = false, double mogoHeight = 100, uint8_t trackingID = 0, double accuracy = 0.25) {
-	double Kp = 10 + 4 * (maxSpeed == 101); // was previously 50/3
-	double Ki = 1.5; // to increase speed if its taking too long.
-	double Kd = 20; // was previously 40/3
+void unitDrive(double target, uint8_t endClaw = false, double clawDist = 1, uint32_t maxTime = INF, double maxSpeed = 100000, bool raiseMogo = false, double mogoHeight = 100, uint8_t trackingID = 0, bool rush = false, double accuracy = 0.25) {
+	double Kp = 10 + 4.5 * rush; // was previously 50/3
+	double Ki = 1; // to increase speed if its taking too long.
+	double Kd = 18; // was previously 40/3
 	double decay = 0.5; // integral decay
 	bool lifted = false;
 	
@@ -611,87 +611,17 @@ void arcTo(double x2, double y2, uint8_t endClaw = false, double clawDist = 1, u
 //1 sec if your good
 
 void balance() { // WIP
-  Brain.Screen.clearScreen();
-  double Kp = 1.2;
-  double Kt = 0.15; // constant for tip counts. This acts like Ki.
-  volatile double speed;
-  volatile double pitch = Gyro.pitch(degrees);
-
-  const uint8_t maxPitchIdx = 2;
-  volatile double oldPitches[maxPitchIdx + 1] = {pitch, pitch, pitch};
-  volatile double oldpitch = pitch;
-
-  double step = 1, oldStep = step;
-  double upper = 100, lower = -100;
-  double backCoef = 1;
-  uint8_t inclineDir = sgn(pitch);
-  uint8_t overCount = 0, underCount = 0; // over is how many times it went too far back. Under is how many times it didn't back up enough.
-
-  uint8_t lastTip = sgn(pitch);
-  bool wasTipping = true;
-  volatile uint32_t startTime = timer::system();
-  double stopAng = 20;
-  while (timer::system() - startTime < 1300) {
-    pitch = Gyro.pitch(degrees);
-    speed = Kp * pitch;
-
-    if (fabs(pitch) > 5) {
-      // if its at the bottom of the platform and it wont go up, then someone didn't use this function correctly.
-      if (fabs(pitch) > stopAng) {
-        drive(speed, speed, 30);
-        inclineDir = sgn(pitch);
-      }
-      else if (sgn(pitch * oldpitch) == 1) {
-        speed *= Kt * (underCount - overCount) - backCoef;
-        drive(speed, speed, 30); // Back up bc it has already overshot
-      }
-      startTime = timer::system();
-    }
-    else {
-      brakeDrive();
-      wait(30, msec);
-      oldpitch = pitch;
-      if (startTime > 500 && MogoTilt.value() != TILT_OPEN) {
-        mogoTilt(TILT_OPEN); // drop mogo because we need rings to count
-      }
-    }
-
-    // correct backCoef
-    bool tipping = fabs(pitch) > 10 && fabs(pitch) > fabs(oldpitch);
-
-    if (tipping && !wasTipping) {
-      int8_t sign = -sgn(pitch * inclineDir); // if pitch and incline have same sign then their product is positve. otherwise, its negative. neither can be 0 :)
-      step /= !(sign * step + backCoef > lower && sign * step + backCoef < upper) + 1;
-      backCoef += sign * step;
-      upper = (upper != 100 || sign == -1) ? backCoef + step : upper; // if step it decreasing then lower upper
-      lower = (lower != -100 || sign == 1) ? backCoef - step : lower; // if step is increasing then raise lower
-      // update tip counters
-      if (sign == 1) {
-        overCount++;
-      }
-      else {
-        underCount++;
-      }
-    }
-
-    // update "old" variables
-    for (uint8_t i = maxPitchIdx; i > 0; i++) {
-      oldPitches[i] = oldPitches[i - 1];
-    }
-    oldPitches[0] = pitch;
-    oldpitch = oldPitches[maxPitchIdx];
-    oldStep = step;
-
-    wasTipping = fabs(pitch) > 10;
-    lastTip = !wasTipping ? lastTip : sgn(pitch);
+  while (fabs(Gyro.pitch(deg)) < 20.5) {
+    drive(100,100, 10);
   }
-  Brain.Screen.printAt(1, 150, "i am done ");
+  unitDrive(0.97);
+  return;
 }
 
-void gyroturn(double target, double maxSpeed = 67, uint32_t maxTime = 1500, double accuracy = 1.25) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
-  double Kp = 0.5;
+void gyroturn(double target, double maxSpeed = 75, uint32_t maxTime = 1500, double accuracy = 1.25) { // idk maybe turns the robot with the gyro,so dont use the drive function use the gyro
+  double Kp = 0.667;
   double Ki = 0;
-  double Kd = 10;
+  double Kd = 7;
   double decay = 0; // integral decay
 	
   volatile double sum = 0;
@@ -702,7 +632,7 @@ void gyroturn(double target, double maxSpeed = 67, uint32_t maxTime = 1500, doub
 
   target += Gyro.rotation(degrees);
 
-  while ((fabs(error) > accuracy || fabs(speed) > 1) && timer::system() - startTime < maxTime) { //fabs = absolute value while loop again
+  while ((fabs(error) > accuracy || fabs(speed) > 5) && timer::system() - startTime < maxTime) { //fabs = absolute value while loop again
     error = target - Gyro.rotation(degrees);; //error gets smaller closer you get,robot slows down
     doThePIDThing
     speed = !(fabs(speed) > maxSpeed) ? speed : maxSpeed * sgn(speed);
@@ -713,7 +643,7 @@ void gyroturn(double target, double maxSpeed = 67, uint32_t maxTime = 1500, doub
 }
 
 void turnTo(double target, uint32_t maxTime = 1000, double accuracy = 1.5) {
-  gyroturn(mod(target - Gyro.rotation(degrees) - 180, 360) - 180, 67, maxTime, accuracy);
+  gyroturn(mod(target - Gyro.rotation(degrees) - 180, 360) - 180, 72, maxTime, accuracy);
 }
 
 void auton() {
@@ -736,30 +666,34 @@ void auton() {
 		wait(10, msec);
   }
   // SIDE
+  Gyro.setRotation(0, deg);
   Lift.spin(forward, -100, pct);
-  unitDrive(1.6, 1, 1, 1000, 101); // get it
-  unitDrive(-0.8,false,0,INF,101,true,8); // back up
+  unitDrive(1.625, 1, 1, 1000, INF,false,0,0,true); // get it
+  unitDrive(-0.8,false,0,INF,INF,true,5,0,true); // back up
   // MID
   mogoTilt(TILT_OPEN); // open tilt
-  turnTo(135,1500); // face it
+  turnTo(140,1500); // face it
   unitDrive(-1.2 * DIAG, 2, 0, 1300, 87, false, 0, YELLOW);
-  turnTo(135, 333); // correct direction
-  unitDrive(1 * DIAG, false, 0, INF, 87);
+  turnTo(140, 500); // correct direction
+  unitDrive(1 * DIAG, false, 0, INF, 80);
   gyroturn(-180);
-  unitDrive(-0.4 * DIAG, false, 0, INF, 87);
+  unitDrive(-0.4 * DIAG, false, 0, INF, 80);
   mogoTilt(TILT_OPEN);
   // ALLIANCE
-  unitDrive(0.2 * DIAG, false, 0, INF, 87);
+  unitDrive(0.2 * DIAG, false, 0, INF, 80);
   turnTo(-80); // face it
   VisionBack.takeSnapshot(MOGO_BLUE); // determine which side we're on
+  rings(true,-100);
+  wait(100,msec);
+  Rings.stop();
   deploy(false)
-  unitDrive(-0.75, 2,0,750,50,true,20,(VisionBack.largestObject.exists ? BLUE : RED)); // get it
+  unitDrive(-0.75, 2,0,875,50,true,20,(VisionBack.largestObject.exists ? BLUE : RED)); // get it
   rings(true);
   // RINGS
   unitDrive(0.1,false,0,500,75);
   turnTo(0);
   unitDrive(1.5,false,0,INF,50);
-  unitDrive(-2,false,0,INF,101); // go back home
+  unitDrive(-1.5,false,0,INF,INF,false,0,0,true); // go back home
 }
 
 
@@ -782,6 +716,7 @@ void driver() {
   unsigned int ticks = 0;
   deploy(false) // deploy ring hood.
   uint32_t startTime = timer::system();
+  uint32_t startTimeY = timer::system();
 
   while (true) {
     // drive control
@@ -805,11 +740,8 @@ void driver() {
       ringsOn = !ringsOn;
       r1Down = true;
     }
-		if (Controller1.ButtonY.pressing()) { // deploy ring hood
-      deploy(false)
-		}
 		if (Controller1.ButtonB.pressing()) { // reverse rings
-      //ringSpeed = -100;
+      ringSpeed = -100;
 		}
     if (timer::system() - startTime > 100) {
       rings(ringsOn || ringSpeed < 0,ringSpeed);
@@ -833,23 +765,35 @@ void driver() {
       Claw(CLAW_OPEN);
 		}
 
+    // balance
+    if (Controller1.ButtonY.pressing()) { // balance
+      if (startTimeY > 875) {
+        liftTime(-100,700);
+        Lift.setMaxTorque(0, Nm);
+        balance();
+        Lift.setMaxTorque(3, Nm);
+      }
+		}
+    else {
+      startTimeY = timer::system();
+    }
+
     // brakes;
     if (Controller1.ButtonDown.pressing()) {
-      auton();
-      /*leftDrive1.stop(brake);
+      leftDrive1.stop(brake);
       leftDrive2.stop(brake);
       leftmiddle.stop(brake);
       rightDrive1.stop(brake);
       rightDrive2.stop(brake);
-      rightmiddle.stop(brake);*/
+      rightmiddle.stop(brake);
     }
     else {
-      /*leftDrive1.setStopping(coast);
+      leftDrive1.setStopping(coast);
       leftDrive2.setStopping(coast);
       leftmiddle.setStopping(coast);
       rightDrive1.setStopping(coast);
       rightDrive2.setStopping(coast);
-      rightmiddle.setStopping(coast);*/
+      rightmiddle.setStopping(coast);
     }
     // motor temp
     if (ticks > 9) {

@@ -22,6 +22,19 @@ digital_out MogoTilt = digital_out(Brain.ThreeWirePort.C);
 motor Rings = motor(PORT20, ratio6_1, false);
 digital_out claw1 = digital_out(Brain.ThreeWirePort.E);
 gps GPSR = gps(PORT18, 177.00, -110.00, mm, 90);
+/*vex-vision-config:begin*/
+signature Vision__MOGO_RED = signature (1, 6279, 10719, 8498, -1039, -261, -650, 2.6, 0);
+signature Vision__MOGO_BLUE = signature (2, -3231, -2263, -2746, 6987, 11713, 9350, 3.7, 0);
+signature Vision__MOGO_YELLOW = signature (3, -1, 2239, 1118, -4399, -2741, -3570, 1.8, 0);
+signature Vision__SIG_4 = signature (4, 0, 0, 0, 0, 0, 0, 3, 0);
+signature Vision__SIG_5 = signature (5, 0, 0, 0, 0, 0, 0, 3, 0);
+signature Vision__SIG_6 = signature (6, 0, 0, 0, 0, 0, 0, 3, 0);
+signature Vision__SIG_7 = signature (7, 0, 0, 0, 0, 0, 0, 3, 0);
+vision Vision = vision (PORT17, 50, Vision__MOGO_RED, Vision__MOGO_BLUE, Vision__MOGO_YELLOW, Vision__SIG_4, Vision__SIG_5, Vision__SIG_6, Vision__SIG_7);
+/*vex-vision-config:end*/
+/*vex-vision-config:begin*/
+vision VisionBack = vision (PORT12, 50);
+/*vex-vision-config:end*/
 
 // VEXcode generated functions
 // define variable for remote controller enable/disable

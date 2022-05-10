@@ -1,13 +1,11 @@
-#include "vex.h"
-
-using namespace vex;
-using signature = vision::signature;
-using code = vision::code;
-
 /*vex-vision-config:begin*/
-signature MOGO_RED = signature (1, 8017, 9845, 8931, 393, 1153, 773, 5.2, 0);
-signature MOGO_BLUE = signature (2, -3139, -2349, -2744, 8913, 13233, 11073, 2.7, 0);
-signature MOGO_YELLOW = signature (3, 1117, 2153, 1636, -2853, -2167, -2510, 4.3, 0);
-vision Vision = vision (PORT19, 50, MOGO_RED, MOGO_BLUE, MOGO_YELLOW);
-vision VisionBack = vision (PORT12, 50, MOGO_RED, MOGO_BLUE, MOGO_YELLOW);
+#include "vex.h"
+vex::vision::signature MOGO_RED = vex::vision::signature (1, 6279, 10719, 8498, -1039, -261, -650, 2.5, 0);
+vex::vision::signature MOGO_BLUE = vex::vision::signature (2, -3231, -2263, -2746, 6987, 11713, 9350, 3.8, 0);
+vex::vision::signature MOGO_YELLOW = vex::vision::signature (3, -1, 2239, 1118, -4399, -2741, -3570, 1.7, 0);
+vex::vision::signature SIG_4 = vex::vision::signature (4, 0, 0, 0, 0, 0, 0, 2.5, 0);
+vex::vision::signature SIG_5 = vex::vision::signature (5, 0, 0, 0, 0, 0, 0, 2.5, 0);
+vex::vision::signature SIG_6 = vex::vision::signature (6, 0, 0, 0, 0, 0, 0, 2.5, 0);
+vex::vision::signature SIG_7 = vex::vision::signature (7, 0, 0, 0, 0, 0, 0, 2.5, 0);
+//vex::vision Vision = vex::vision (vex::PORT19, 50, MOGO_RED, MOGO_BLUE, MOGO_YELLOW, SIG_4, SIG_5, SIG_6, SIG_7);
 /*vex-vision-config:end*/
